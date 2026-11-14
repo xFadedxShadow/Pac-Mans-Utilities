@@ -2,7 +2,7 @@
  * @name Pac-Mans Utilities
  * @author the.pacman.is.back
  * @authorId 280218268038463489
- * @version 3.0.1
+ * @version 3.0.3
  * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry, custom rule labeling, and individual server preset import/export.
  */
 
@@ -335,11 +335,11 @@ module.exports = class PacMansUtilities {
         return SelectedGuildStore?.getGuildId?.() || null;
     }
 
-    // --- SETTINGS PANEL UI (Cross-OS Responsive Architecture) ---
+    // --- SETTINGS PANEL UI (Mac WebKit & Windows Cross-Platform Layout) ---
     getSettingsPanel() {
         const panel = document.createElement("div");
         panel.className = "pmu-settings-root";
-        panel.style.cssText = "box-sizing: border-box; width: 100%; max-width: 1100px; padding: clamp(14px, 2.5vw, 28px); color: var(--text-normal); font-family: var(--font-primary); font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased;";
+        panel.style.cssText = "box-sizing: border-box; width: 100%; max-width: 1100px; padding: 28px; color: var(--text-normal); font-family: var(--font-primary); font-size: 14px; -webkit-font-smoothing: antialiased;";
 
         const scopedStyles = document.createElement("style");
         scopedStyles.textContent = `
@@ -351,17 +351,13 @@ module.exports = class PacMansUtilities {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 6px;
                 border: none;
                 border-radius: 6px;
                 font-weight: 600;
-                line-height: 1.2;
                 cursor: pointer;
                 white-space: nowrap;
-                flex-shrink: 0;
                 -webkit-appearance: none;
                 appearance: none;
-                transition: opacity 0.15s ease, background 0.15s ease;
             }
             .pmu-btn:disabled {
                 cursor: not-allowed;
@@ -374,36 +370,30 @@ module.exports = class PacMansUtilities {
                 padding: 0 10px;
                 background: var(--input-background, #202225);
                 color: var(--text-normal, #dcddde);
-                border: 1px solid var(--input-border, rgba(255, 255, 255, 0.08));
-                border-radius: 5px;
-                font-size: 12px;
-                line-height: 30px;
+                border: 1px solid var(--input-border, transparent);
+                border-radius: 4px;
+                font-size: 11px;
                 outline: none;
                 margin: 0;
                 -webkit-appearance: none;
                 appearance: none;
             }
-            .pmu-input:focus, .pmu-select:focus {
-                border-color: var(--brand-experiment, #5865f2);
-            }
             .pmu-select {
-                padding-right: 26px;
+                padding-right: 24px;
                 background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b9bbbe' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
                 background-repeat: no-repeat;
-                background-position: right 8px center;
-                background-size: 13px;
+                background-position: right 6px center;
+                background-size: 12px;
                 cursor: pointer;
             }
             .pmu-color {
-                width: 32px;
-                height: 32px;
+                width: 28px;
+                height: 26px;
                 padding: 0;
                 margin: 0;
-                border: 1px solid var(--input-border, rgba(255, 255, 255, 0.12));
-                border-radius: 5px;
+                border: none;
                 background: transparent;
                 cursor: pointer;
-                overflow: hidden;
                 -webkit-appearance: none;
                 appearance: none;
             }
@@ -415,35 +405,24 @@ module.exports = class PacMansUtilities {
                 border-radius: 4px;
             }
             .pmu-checkbox {
-                width: 17px;
-                height: 17px;
+                width: 16px;
+                height: 16px;
                 margin: 0;
                 cursor: pointer;
-                accent-color: var(--brand-experiment, #5865f2);
-                flex-shrink: 0;
-            }
-            .pmu-label {
-                display: block;
-                font-size: 10px;
-                font-weight: 700;
-                line-height: 1.2;
-                color: var(--text-muted);
-                text-transform: uppercase;
-                letter-spacing: 0.03em;
-                margin-bottom: 5px;
-                white-space: nowrap;
+                -webkit-appearance: checkbox;
+                appearance: checkbox;
             }
         `;
         panel.appendChild(scopedStyles);
 
         const header = document.createElement("div");
-        header.style.cssText = "background: var(--background-secondary-alt); border: 1px solid var(--background-tertiary); border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;";
+        header.style.cssText = "background: var(--background-secondary-alt); border: 1px solid var(--background-tertiary); border-radius: 12px; padding: 20px; margin-bottom: 24px;";
         header.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
-                <span style="font-size: 20px; line-height: 1;">🛡️</span>
-                <h2 style="color: var(--header-primary); font-size: 18px; font-weight: 700; margin: 0; line-height: 1.3;">Pac-Mans Utilities - Server Rules</h2>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                <span style="font-size: 22px;">🛡️</span>
+                <h2 style="color: var(--header-primary); font-size: 20px; font-weight: 700; margin: 0;">Pac-Mans Utilities - Server Rules</h2>
             </div>
-            <p style="color: var(--text-muted); font-size: 13px; line-height: 1.5; margin: 0;">
+            <p style="color: var(--text-muted); font-size: 14px; line-height: 1.5; margin: 0;">
                 Configure server presets, label your rules, and type or paste Role IDs directly. Use ⬆️ / ⬇️ to reorder priority. Export or import individual server configurations below.
             </p>
         `;
@@ -453,12 +432,12 @@ module.exports = class PacMansUtilities {
         toolbar.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;";
 
         const toolbarLeft = document.createElement("div");
-        toolbarLeft.style.cssText = "display: flex; gap: 10px; align-items: center; flex-wrap: wrap;";
+        toolbarLeft.style.cssText = "display: flex; gap: 10px; align-items: center;";
 
         const addBtn = document.createElement("button");
         addBtn.className = "pmu-btn";
-        addBtn.innerHTML = '<span style="font-size: 16px; font-weight: bold; line-height: 1;">+</span><span>Add Server Config</span>';
-        addBtn.style.cssText = "background: var(--button-primary-background, #5865f2); color: white; padding: 9px 16px; font-size: 13px;";
+        addBtn.innerHTML = '<span style="font-size: 16px; font-weight: bold;">+</span> Add Server Config';
+        addBtn.style.cssText = "background: var(--button-primary-background, #5865f2); color: white; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;";
         addBtn.onmouseover = () => addBtn.style.background = "var(--button-primary-background-hover, #4752c4)";
         addBtn.onmouseout = () => addBtn.style.background = "var(--button-primary-background, #5865f2)";
         addBtn.onclick = () => {
@@ -470,7 +449,7 @@ module.exports = class PacMansUtilities {
         toolbar.appendChild(toolbarLeft);
 
         const toolbarRight = document.createElement("div");
-        toolbarRight.style.cssText = "display: flex; gap: 10px; align-items: center; flex-wrap: wrap;";
+        toolbarRight.style.cssText = "display: flex; gap: 10px; align-items: center;";
 
         const importSingleInput = document.createElement("input");
         importSingleInput.type = "file";
@@ -506,7 +485,7 @@ module.exports = class PacMansUtilities {
         const importBtn = document.createElement("button");
         importBtn.className = "pmu-btn";
         importBtn.innerText = "📥 Import Server Config";
-        importBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); padding: 9px 14px; font-size: 13px;";
+        importBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer;";
         importBtn.onclick = () => importSingleInput.click();
         toolbarRight.appendChild(importBtn);
 
@@ -521,9 +500,9 @@ module.exports = class PacMansUtilities {
             container.innerHTML = "";
             if (this.settings.presets.length === 0) {
                 const emptyState = document.createElement("div");
-                emptyState.style.cssText = "padding: 36px 20px; text-align: center; background: var(--background-secondary); border: 2px dashed var(--background-modifier-accent); border-radius: 12px; color: var(--text-muted); font-size: 13px;";
+                emptyState.style.cssText = "padding: 40px; text-align: center; background: var(--background-secondary); border: 2px dashed var(--background-modifier-accent); border-radius: 12px; color: var(--text-muted); font-size: 14px;";
                 emptyState.innerHTML = `
-                    <div style="font-size: 30px; margin-bottom: 8px; line-height: 1;">📂</div>
+                    <div style="font-size: 32px; margin-bottom: 8px;">📂</div>
                     <div style="font-weight: 600; color: var(--header-secondary); margin-bottom: 4px;">No server configs added yet</div>
                     <div>Click '+ Add Server Config' or '📥 Import Server Config' above to get started!</div>
                 `;
@@ -535,17 +514,17 @@ module.exports = class PacMansUtilities {
                 if (serverPreset.collapsed === undefined) serverPreset.collapsed = false;
 
                 const card = document.createElement("div");
-                card.style.cssText = "background: var(--background-secondary); border: 1px solid var(--background-tertiary); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%;";
+                card.style.cssText = "background: var(--background-secondary); border: 1px solid var(--background-tertiary); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%;";
 
                 const cardHeader = document.createElement("div");
-                cardHeader.style.cssText = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--background-tertiary); padding-bottom: 12px; cursor: pointer; user-select: none; flex-wrap: wrap; gap: 12px;";
+                cardHeader.style.cssText = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--background-tertiary); padding-bottom: 12px; cursor: pointer; user-select: none;";
 
                 const guildInfoWrapper = document.createElement("div");
-                guildInfoWrapper.style.cssText = "display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 220px;";
+                guildInfoWrapper.style.cssText = "display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto;";
 
                 const guild = this.GuildStore?.getGuild?.(serverPreset.guildId);
                 const guildName = guild?.name;
-
+                
                 let guildIconUrl = null;
                 if (guild) {
                     if (typeof guild.getIconURL === "function") {
@@ -556,12 +535,12 @@ module.exports = class PacMansUtilities {
                 }
 
                 const iconImg = document.createElement("img");
-                iconImg.style.cssText = "width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--background-tertiary); flex-shrink: 0;";
+                iconImg.style.cssText = "width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--background-tertiary); flex-shrink: 0;";
                 iconImg.src = guildIconUrl || "https://cdn.discordapp.com/embed/avatars/0.png";
                 guildInfoWrapper.appendChild(iconImg);
 
                 const statusDot = document.createElement("span");
-                statusDot.style.cssText = `width: 9px; height: 9px; border-radius: 50%; background: ${guildName ? "var(--status-positive, #3ba55d)" : "var(--status-warning, #faa61a)"}; display: inline-block; flex-shrink: 0;`;
+                statusDot.style.cssText = `width: 10px; height: 10px; border-radius: 50%; background: ${guildName ? "var(--status-positive, #3ba55d)" : "var(--status-warning, #faa61a)"}; display: inline-block; flex-shrink: 0;`;
                 guildInfoWrapper.appendChild(statusDot);
 
                 const titleSpan = document.createElement("span");
@@ -570,20 +549,20 @@ module.exports = class PacMansUtilities {
                 guildInfoWrapper.appendChild(titleSpan);
 
                 const collapseIndicator = document.createElement("span");
-                collapseIndicator.style.cssText = "font-size: 11px; color: var(--text-muted); margin-left: 4px; white-space: nowrap; flex-shrink: 0;";
+                collapseIndicator.style.cssText = "font-size: 12px; color: var(--text-muted); margin-left: 8px; flex-shrink: 0;";
                 collapseIndicator.innerText = serverPreset.collapsed ? "▶ (Collapsed)" : "▼ (Expanded)";
                 guildInfoWrapper.appendChild(collapseIndicator);
 
                 cardHeader.appendChild(guildInfoWrapper);
 
                 const actionGroup = document.createElement("div");
-                actionGroup.style.cssText = "display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0;";
+                actionGroup.style.cssText = "display: flex; align-items: center; gap: 8px; flex-shrink: 0;";
 
                 const moveUpBtn = document.createElement("button");
                 moveUpBtn.className = "pmu-btn";
                 moveUpBtn.innerText = "⬆️";
                 moveUpBtn.disabled = pIndex === 0;
-                moveUpBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); font-size: 12px; padding: 6px 8px;";
+                moveUpBtn.style.cssText = `background: var(--background-modifier-selected); color: var(--interactive-active); cursor: ${pIndex === 0 ? "not-allowed" : "pointer"}; opacity: ${pIndex === 0 ? "0.4" : "1"}; font-size: 12px; padding: 6px 8px; border-radius: 6px;`;
                 moveUpBtn.onclick = (e) => {
                     e.stopPropagation();
                     if (pIndex > 0) {
@@ -600,7 +579,7 @@ module.exports = class PacMansUtilities {
                 moveDownBtn.className = "pmu-btn";
                 moveDownBtn.innerText = "⬇️";
                 moveDownBtn.disabled = pIndex === this.settings.presets.length - 1;
-                moveDownBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); font-size: 12px; padding: 6px 8px;";
+                moveDownBtn.style.cssText = `background: var(--background-modifier-selected); color: var(--interactive-active); cursor: ${pIndex === this.settings.presets.length - 1 ? "not-allowed" : "pointer"}; opacity: ${pIndex === this.settings.presets.length - 1 ? "0.4" : "1"}; font-size: 12px; padding: 6px 8px; border-radius: 6px;`;
                 moveDownBtn.onclick = (e) => {
                     e.stopPropagation();
                     if (pIndex < this.settings.presets.length - 1) {
@@ -616,7 +595,7 @@ module.exports = class PacMansUtilities {
                 const quickFillBtn = document.createElement("button");
                 quickFillBtn.className = "pmu-btn";
                 quickFillBtn.innerText = "📍 Use Current";
-                quickFillBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); font-size: 12px; padding: 6px 10px;";
+                quickFillBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); cursor: pointer; font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 6px;";
                 quickFillBtn.onclick = (e) => {
                     e.stopPropagation();
                     const currentGuildId = this.getCurrentActiveGuildId();
@@ -635,7 +614,7 @@ module.exports = class PacMansUtilities {
                 exportPresetBtn.className = "pmu-btn";
                 exportPresetBtn.innerText = "📤";
                 exportPresetBtn.title = "Export Server Config";
-                exportPresetBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); font-size: 12px; padding: 6px 8px;";
+                exportPresetBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); cursor: pointer; font-size: 12px; padding: 6px 8px; border-radius: 6px;";
                 exportPresetBtn.onclick = (e) => {
                     e.stopPropagation();
                     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(serverPreset, null, 2));
@@ -652,7 +631,7 @@ module.exports = class PacMansUtilities {
                 const deleteBtn = document.createElement("button");
                 deleteBtn.className = "pmu-btn";
                 deleteBtn.innerText = "🗑️";
-                deleteBtn.style.cssText = "background: transparent; color: var(--status-danger, #f04747); font-size: 14px; padding: 6px 8px;";
+                deleteBtn.style.cssText = "background: transparent; color: var(--status-danger, #f04747); cursor: pointer; font-size: 14px; padding: 6px 8px; border-radius: 6px;";
                 deleteBtn.onclick = (e) => {
                     e.stopPropagation();
                     this.settings.presets.splice(pIndex, 1);
@@ -672,12 +651,12 @@ module.exports = class PacMansUtilities {
 
                 if (!serverPreset.collapsed) {
                     const serverTopRow = document.createElement("div");
-                    serverTopRow.style.cssText = "display: flex; gap: 14px; align-items: center; background: var(--background-tertiary); padding: 12px; border-radius: 8px; flex-wrap: wrap;";
+                    serverTopRow.style.cssText = "display: flex; gap: 16px; align-items: center; background: var(--background-tertiary); padding: 12px; border-radius: 8px;";
 
                     const guildWrapper = document.createElement("div");
-                    guildWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1 1 240px; min-width: 0;";
-                    guildWrapper.innerHTML = '<label class="pmu-label" style="color: var(--header-secondary);">Server</label>';
-
+                    guildWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;";
+                    guildWrapper.innerHTML = '<label style="font-size: 11px; font-weight: 700; color: var(--header-secondary); text-transform: uppercase;">Server</label>';
+                    
                     const guildSelect = document.createElement("select");
                     guildSelect.className = "pmu-select";
 
@@ -704,32 +683,30 @@ module.exports = class PacMansUtilities {
                     serverTopRow.appendChild(guildWrapper);
 
                     const serverToggleWrapper = document.createElement("div");
-                    serverToggleWrapper.style.cssText = "display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;";
-                    serverToggleWrapper.innerHTML = '<label class="pmu-label" style="color: var(--header-secondary);">Server Enabled</label>';
-
-                    const switchBox = document.createElement("div");
-                    switchBox.style.cssText = "height: 32px; display: flex; align-items: center; justify-content: center;";
+                    serverToggleWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; align-items: center; flex-shrink: 0;";
+                    serverToggleWrapper.innerHTML = '<label style="font-size: 11px; font-weight: 700; color: var(--header-secondary); text-transform: uppercase;">Server Enabled</label>';
+                    
                     const sSwitch = document.createElement("input");
                     sSwitch.type = "checkbox";
                     sSwitch.className = "pmu-checkbox";
                     sSwitch.checked = serverPreset.enabled;
+                    sSwitch.style.cssText = "cursor: pointer; margin-top: 6px;";
                     sSwitch.onchange = (e) => {
                         serverPreset.enabled = e.target.checked;
                         BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                     };
-                    switchBox.appendChild(sSwitch);
-                    serverToggleWrapper.appendChild(switchBox);
+                    serverToggleWrapper.appendChild(sSwitch);
                     serverTopRow.appendChild(serverToggleWrapper);
                     card.appendChild(serverTopRow);
 
                     const rulesHeader = document.createElement("div");
-                    rulesHeader.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-top: 2px; flex-wrap: wrap; gap: 8px;";
+                    rulesHeader.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-top: 4px;";
                     rulesHeader.innerHTML = '<span style="font-size: 12px; font-weight: 700; color: var(--header-secondary); text-transform: uppercase;">Role Rules (Top to Bottom Priority)</span>';
 
                     const addRuleBtn = document.createElement("button");
                     addRuleBtn.className = "pmu-btn";
                     addRuleBtn.innerText = "+ Add Role Rule";
-                    addRuleBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); font-size: 12px; padding: 6px 12px;";
+                    addRuleBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); cursor: pointer; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px;";
                     addRuleBtn.onclick = () => {
                         if (!serverPreset.rules) serverPreset.rules = [];
                         serverPreset.rules.push({ name: "", roleIds: "", exceptionRoleIds: "", condition: "lacks_any", highlightColor: "#f04747", enabled: true, copyId: true });
@@ -740,7 +717,7 @@ module.exports = class PacMansUtilities {
                     card.appendChild(rulesHeader);
 
                     const rulesList = document.createElement("div");
-                    rulesList.style.cssText = "display: flex; flex-direction: column; gap: 10px; width: 100%;";
+                    rulesList.style.cssText = "display: flex; flex-direction: column; gap: 12px; width: 100%;";
 
                     if (!serverPreset.rules || serverPreset.rules.length === 0) {
                         const noRules = document.createElement("div");
@@ -750,18 +727,17 @@ module.exports = class PacMansUtilities {
                     } else {
                         serverPreset.rules.forEach((rule, rIndex) => {
                             const ruleBox = document.createElement("div");
-                            ruleBox.style.cssText = "background: var(--background-secondary-alt); padding: 12px; border-radius: 8px; border: 1px solid var(--background-tertiary); display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; width: 100%;";
+                            ruleBox.style.cssText = "background: var(--background-secondary-alt); padding: 14px; border-radius: 8px; border: 1px solid var(--background-tertiary); display: flex; flex-direction: column; gap: 10px; width: 100%;";
 
-                            // Order controls group
-                            const orderGroup = document.createElement("div");
-                            orderGroup.style.cssText = "display: flex; gap: 4px; align-items: center; height: 32px; flex-shrink: 0;";
+                            const ruleInputsRow = document.createElement("div");
+                            ruleInputsRow.style.cssText = "display: flex; gap: 10px; align-items: center; width: 100%; flex-wrap: nowrap;";
 
                             const rMoveUp = document.createElement("button");
                             rMoveUp.className = "pmu-btn";
                             rMoveUp.innerText = "⬆️";
                             rMoveUp.disabled = rIndex === 0;
                             rMoveUp.title = "Move Rule Up";
-                            rMoveUp.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); font-size: 11px; width: 28px; height: 32px; padding: 0;";
+                            rMoveUp.style.cssText = `background: var(--background-modifier-selected); color: var(--interactive-active); cursor: ${rIndex === 0 ? "not-allowed" : "pointer"}; opacity: ${rIndex === 0 ? "0.4" : "1"}; font-size: 11px; padding: 4px 6px; border-radius: 4px; margin-top: 14px; flex-shrink: 0;`;
                             rMoveUp.onclick = () => {
                                 if (rIndex > 0) {
                                     const temp = serverPreset.rules[rIndex];
@@ -771,14 +747,14 @@ module.exports = class PacMansUtilities {
                                     renderPresets();
                                 }
                             };
-                            orderGroup.appendChild(rMoveUp);
+                            ruleInputsRow.appendChild(rMoveUp);
 
                             const rMoveDown = document.createElement("button");
                             rMoveDown.className = "pmu-btn";
                             rMoveDown.innerText = "⬇️";
                             rMoveDown.disabled = rIndex === serverPreset.rules.length - 1;
                             rMoveDown.title = "Move Rule Down";
-                            rMoveDown.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); font-size: 11px; width: 28px; height: 32px; padding: 0;";
+                            rMoveDown.style.cssText = `background: var(--background-modifier-selected); color: var(--interactive-active); cursor: ${rIndex === serverPreset.rules.length - 1 ? "not-allowed" : "pointer"}; opacity: ${rIndex === serverPreset.rules.length - 1 ? "0.4" : "1"}; font-size: 11px; padding: 4px 6px; border-radius: 4px; margin-top: 14px; flex-shrink: 0;`;
                             rMoveDown.onclick = () => {
                                 if (rIndex < serverPreset.rules.length - 1) {
                                     const temp = serverPreset.rules[rIndex];
@@ -788,14 +764,12 @@ module.exports = class PacMansUtilities {
                                     renderPresets();
                                 }
                             };
-                            orderGroup.appendChild(rMoveDown);
-                            ruleBox.appendChild(orderGroup);
+                            ruleInputsRow.appendChild(rMoveDown);
 
-                            // Rule Label
                             const nameWrapper = document.createElement("div");
-                            nameWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1 1 110px; min-width: 100px;";
-                            nameWrapper.innerHTML = '<label class="pmu-label">Rule Label</label>';
-
+                            nameWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;";
+                            nameWrapper.innerHTML = '<label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rule Label</label>';
+                            
                             const nameInput = document.createElement("input");
                             nameInput.type = "text";
                             nameInput.className = "pmu-input";
@@ -806,13 +780,12 @@ module.exports = class PacMansUtilities {
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
                             nameWrapper.appendChild(nameInput);
-                            ruleBox.appendChild(nameWrapper);
+                            ruleInputsRow.appendChild(nameWrapper);
 
-                            // Target Role ID(s)
                             const targetWrapper = document.createElement("div");
-                            targetWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.5 1 150px; min-width: 130px;";
-                            targetWrapper.innerHTML = '<label class="pmu-label">Target Role ID(s)</label>';
-
+                            targetWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; flex: 1.5; min-width: 0;";
+                            targetWrapper.innerHTML = '<label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Target Role ID(s)</label>';
+                            
                             const roleInput = document.createElement("input");
                             roleInput.type = "text";
                             roleInput.className = "pmu-input";
@@ -823,13 +796,12 @@ module.exports = class PacMansUtilities {
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
                             targetWrapper.appendChild(roleInput);
-                            ruleBox.appendChild(targetWrapper);
+                            ruleInputsRow.appendChild(targetWrapper);
 
-                            // Exception Role ID(s)
                             const excWrapper = document.createElement("div");
-                            excWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.5 1 150px; min-width: 130px;";
-                            excWrapper.innerHTML = '<label class="pmu-label">Exception Role ID(s)</label>';
-
+                            excWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; flex: 1.5; min-width: 0;";
+                            excWrapper.innerHTML = '<label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Exception Role ID(s)</label>';
+                            
                             const excInput = document.createElement("input");
                             excInput.type = "text";
                             excInput.className = "pmu-input";
@@ -840,13 +812,12 @@ module.exports = class PacMansUtilities {
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
                             excWrapper.appendChild(excInput);
-                            ruleBox.appendChild(excWrapper);
+                            ruleInputsRow.appendChild(excWrapper);
 
-                            // Condition
                             const cWrapper = document.createElement("div");
-                            cWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.2 1 135px; min-width: 125px;";
-                            cWrapper.innerHTML = '<label class="pmu-label">Condition</label>';
-
+                            cWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; flex: 1.3; min-width: 0;";
+                            cWrapper.innerHTML = '<label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Condition</label>';
+                            
                             const cSelect = document.createElement("select");
                             cSelect.className = "pmu-select";
                             cSelect.innerHTML = `
@@ -860,16 +831,12 @@ module.exports = class PacMansUtilities {
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
                             cWrapper.appendChild(cSelect);
-                            ruleBox.appendChild(cWrapper);
-
-                            // Trailing Action Controls Group (Color, Copy ID, Active, Delete)
-                            const trailingControls = document.createElement("div");
-                            trailingControls.style.cssText = "display: flex; align-items: flex-end; gap: 12px; flex-shrink: 0;";
+                            ruleInputsRow.appendChild(cWrapper);
 
                             const colWrapper = document.createElement("div");
-                            colWrapper.style.cssText = "display: flex; flex-direction: column; align-items: center;";
-                            colWrapper.innerHTML = '<label class="pmu-label">Color</label>';
-
+                            colWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; align-items: center; flex-shrink: 0;";
+                            colWrapper.innerHTML = '<label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Color</label>';
+                            
                             const colInput = document.createElement("input");
                             colInput.type = "color";
                             colInput.className = "pmu-color";
@@ -879,60 +846,57 @@ module.exports = class PacMansUtilities {
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
                             colWrapper.appendChild(colInput);
-                            trailingControls.appendChild(colWrapper);
+                            ruleInputsRow.appendChild(colWrapper);
 
                             const copyWrapper = document.createElement("div");
-                            copyWrapper.style.cssText = "display: flex; flex-direction: column; align-items: center;";
-                            copyWrapper.innerHTML = '<label class="pmu-label" title="Copy User ID when triggered">Copy ID</label>';
-
-                            const copyBox = document.createElement("div");
-                            copyBox.style.cssText = "height: 32px; display: flex; align-items: center; justify-content: center;";
+                            copyWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; align-items: center; flex-shrink: 0;";
+                            copyWrapper.innerHTML = '<label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;" title="Copy User ID when triggered">Copy ID</label>';
+                            
                             const copyCheck = document.createElement("input");
                             copyCheck.type = "checkbox";
                             copyCheck.className = "pmu-checkbox";
                             copyCheck.checked = rule.copyId !== false;
+                            copyCheck.style.cssText = "cursor: pointer; margin-top: 4px;";
                             copyCheck.onchange = (e) => {
                                 rule.copyId = e.target.checked;
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
-                            copyBox.appendChild(copyCheck);
-                            copyWrapper.appendChild(copyBox);
-                            trailingControls.appendChild(copyWrapper);
+                            copyWrapper.appendChild(copyCheck);
+                            ruleInputsRow.appendChild(copyWrapper);
 
                             const activeWrapper = document.createElement("div");
-                            activeWrapper.style.cssText = "display: flex; flex-direction: column; align-items: center;";
-                            activeWrapper.innerHTML = '<label class="pmu-label" title="Enable or Disable Rule">Active</label>';
-
-                            const activeBox = document.createElement("div");
-                            activeBox.style.cssText = "height: 32px; display: flex; align-items: center; justify-content: center;";
+                            activeWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; align-items: center; flex-shrink: 0;";
+                            activeWrapper.innerHTML = '<label style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;" title="Enable or Disable Rule">Active</label>';
+                            
                             const rCheck = document.createElement("input");
                             rCheck.type = "checkbox";
                             rCheck.className = "pmu-checkbox";
                             rCheck.checked = rule.enabled !== false;
+                            rCheck.style.cssText = "cursor: pointer; margin-top: 4px;";
                             rCheck.onchange = (e) => {
                                 rule.enabled = e.target.checked;
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
-                            activeBox.appendChild(rCheck);
-                            activeWrapper.appendChild(activeBox);
-                            trailingControls.appendChild(activeWrapper);
+                            activeWrapper.appendChild(rCheck);
+                            ruleInputsRow.appendChild(activeWrapper);
 
-                            const delBox = document.createElement("div");
-                            delBox.style.cssText = "height: 32px; display: flex; align-items: center; justify-content: center;";
+                            const delWrapper = document.createElement("div");
+                            delWrapper.style.cssText = "display: flex; flex-direction: column; gap: 4px; align-items: center; flex-shrink: 0;";
+                            delWrapper.innerHTML = '<label style="font-size: 10px; font-weight: 700; color: transparent; text-transform: uppercase;">Del</label>';
+                            
                             const rDel = document.createElement("button");
                             rDel.className = "pmu-btn";
                             rDel.innerText = "❌";
-                            rDel.title = "Delete Rule";
-                            rDel.style.cssText = "background: transparent; font-size: 12px; width: 28px; height: 32px; padding: 0;";
+                            rDel.style.cssText = "background: transparent; border: none; cursor: pointer; font-size: 12px; padding: 4px;";
                             rDel.onclick = () => {
                                 serverPreset.rules.splice(rIndex, 1);
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                                 renderPresets();
                             };
-                            delBox.appendChild(rDel);
-                            trailingControls.appendChild(delBox);
+                            delWrapper.appendChild(rDel);
+                            ruleInputsRow.appendChild(delWrapper);
 
-                            ruleBox.appendChild(trailingControls);
+                            ruleBox.appendChild(ruleInputsRow);
                             rulesList.appendChild(ruleBox);
                         });
                     }

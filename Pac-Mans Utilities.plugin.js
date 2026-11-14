@@ -2,7 +2,7 @@
  * @name Pac-Mans Utilities
  * @author the.pacman.is.back
  * @authorId 280218268038463489
- * @version 3.0.1
+ * @version 3.0.2
  * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry, custom rule labeling, and individual server preset import/export.
  */
 
@@ -24,6 +24,8 @@ const getFiber = (node) => {
     const key = Object.keys(node).find(k => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"));
     return key ? node[key] : null;
 };
+
+const isMac = typeof navigator !== 'undefined' && (/Mac|iPod|iPhone|iPad/.test(navigator.platform) || navigator.userAgent.includes('Macintosh'));
 
 module.exports = class PacMansUtilities {
     constructor() {
@@ -284,6 +286,12 @@ module.exports = class PacMansUtilities {
                     targetEl.style.boxShadow = `inset 0 0 0 2px ${primaryColor}`;
                     targetEl.style.backgroundColor = hexToRgba(primaryColor, 0.2);
                     targetEl.style.borderRadius = "4px";
+                    if (isMac) {
+                        targetEl.style.webkitTransform = "translateZ(0)";
+                        targetEl.style.transform = "translateZ(0)";
+                        targetEl.style.webkitBackfaceVisibility = "hidden";
+                        targetEl.style.backfaceVisibility = "hidden";
+                    }
                 } else {
                     this.resetElementStyle(targetEl);
                 }
@@ -297,6 +305,12 @@ module.exports = class PacMansUtilities {
         el.style.backgroundColor = "";
         el.style.boxShadow = "";
         el.style.borderRadius = "";
+        if (isMac) {
+            el.style.webkitTransform = "";
+            el.style.transform = "";
+            el.style.webkitBackfaceVisibility = "";
+            el.style.backfaceVisibility = "";
+        }
     }
 
     extractUserIdFromNode(node) {
@@ -752,7 +766,6 @@ module.exports = class PacMansUtilities {
                             const ruleBox = document.createElement("div");
                             ruleBox.style.cssText = "background: var(--background-secondary-alt); padding: 12px; border-radius: 8px; border: 1px solid var(--background-tertiary); display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; width: 100%;";
 
-                            // Order controls group
                             const orderGroup = document.createElement("div");
                             orderGroup.style.cssText = "display: flex; gap: 4px; align-items: center; height: 32px; flex-shrink: 0;";
 
@@ -791,7 +804,6 @@ module.exports = class PacMansUtilities {
                             orderGroup.appendChild(rMoveDown);
                             ruleBox.appendChild(orderGroup);
 
-                            // Rule Label
                             const nameWrapper = document.createElement("div");
                             nameWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1 1 110px; min-width: 100px;";
                             nameWrapper.innerHTML = '<label class="pmu-label">Rule Label</label>';
@@ -808,7 +820,6 @@ module.exports = class PacMansUtilities {
                             nameWrapper.appendChild(nameInput);
                             ruleBox.appendChild(nameWrapper);
 
-                            // Target Role ID(s)
                             const targetWrapper = document.createElement("div");
                             targetWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.5 1 150px; min-width: 130px;";
                             targetWrapper.innerHTML = '<label class="pmu-label">Target Role ID(s)</label>';
@@ -825,7 +836,6 @@ module.exports = class PacMansUtilities {
                             targetWrapper.appendChild(roleInput);
                             ruleBox.appendChild(targetWrapper);
 
-                            // Exception Role ID(s)
                             const excWrapper = document.createElement("div");
                             excWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.5 1 150px; min-width: 130px;";
                             excWrapper.innerHTML = '<label class="pmu-label">Exception Role ID(s)</label>';
@@ -842,7 +852,6 @@ module.exports = class PacMansUtilities {
                             excWrapper.appendChild(excInput);
                             ruleBox.appendChild(excWrapper);
 
-                            // Condition
                             const cWrapper = document.createElement("div");
                             cWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.2 1 135px; min-width: 125px;";
                             cWrapper.innerHTML = '<label class="pmu-label">Condition</label>';
@@ -862,7 +871,6 @@ module.exports = class PacMansUtilities {
                             cWrapper.appendChild(cSelect);
                             ruleBox.appendChild(cWrapper);
 
-                            // Trailing Action Controls Group (Color, Copy ID, Active, Delete)
                             const trailingControls = document.createElement("div");
                             trailingControls.style.cssText = "display: flex; align-items: flex-end; gap: 12px; flex-shrink: 0;";
 

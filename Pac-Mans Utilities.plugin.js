@@ -2,7 +2,7 @@
  * @name Pac-Mans Utilities
  * @author the.pacman.is.back
  * @authorId 280218268038463489
- * @version 3.0.2
+ * @version 3.0.3
  * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry, custom rule labeling, and individual server preset import/export.
  */
 
@@ -353,7 +353,7 @@ module.exports = class PacMansUtilities {
     getSettingsPanel() {
         const panel = document.createElement("div");
         panel.className = "pmu-settings-root";
-        panel.style.cssText = "box-sizing: border-box; width: 100%; max-width: 1100px; padding: clamp(14px, 2.5vw, 28px); color: var(--text-normal); font-family: var(--font-primary); font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased;";
+        panel.style.cssText = `box-sizing: border-box; width: 100%; max-width: 1100px; padding: clamp(14px, 2.5vw, 28px); color: var(--text-normal); font-family: var(--font-primary); font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; ${isMac ? 'contain: layout style paint; position: relative;' : ''}`;
 
         const scopedStyles = document.createElement("style");
         scopedStyles.textContent = `

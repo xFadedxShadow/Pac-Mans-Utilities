@@ -2,7 +2,7 @@
  * @name Pac-Mans Utilities
  * @author the.pacman.is.back
  * @authorId 280218268038463489
- * @version 3.0.5
+ * @version 3.0.6
  * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry, custom rule labeling, and individual server preset import/export.
  */
 
@@ -349,7 +349,7 @@ module.exports = class PacMansUtilities {
         return SelectedGuildStore?.getGuildId?.() || null;
     }
 
-    // --- SETTINGS PANEL UI (Cross-OS Optimized Layout Architecture) ---
+    // --- SETTINGS PANEL UI (Cross-OS Resizable Modal Architecture) ---
     getSettingsPanel() {
         const panel = document.createElement("div");
         panel.className = `pmu-settings-root ${isMac ? "pmu-os-mac" : "pmu-os-desktop"}`;
@@ -361,12 +361,17 @@ module.exports = class PacMansUtilities {
                 box-sizing: border-box;
                 font-family: inherit;
             }
-            /* macOS BetterDiscord Detached Modal Window Optimization */
+            /* macOS BetterDiscord Detached Resizable Modal Optimization */
             .pmu-settings-root.pmu-os-mac {
                 padding: clamp(10px, 2vw, 16px);
-                max-width: 100%;
                 width: 100%;
-                overflow-x: hidden;
+                height: 100%;
+                min-width: 380px;
+                min-height: 280px;
+                max-width: 100vw;
+                max-height: 90vh;
+                resize: both;
+                overflow: auto;
                 position: relative;
                 contain: layout style;
             }

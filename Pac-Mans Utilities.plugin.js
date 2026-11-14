@@ -2,7 +2,7 @@
  * @name Pac-Mans Utilities
  * @author the.pacman.is.back
  * @authorId 280218268038463489
- * @version 3.0.3
+ * @version 3.0.5
  * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry, custom rule labeling, and individual server preset import/export.
  */
 
@@ -349,17 +349,62 @@ module.exports = class PacMansUtilities {
         return SelectedGuildStore?.getGuildId?.() || null;
     }
 
-    // --- SETTINGS PANEL UI (Cross-OS Responsive Architecture) ---
+    // --- SETTINGS PANEL UI (Cross-OS Optimized Layout Architecture) ---
     getSettingsPanel() {
         const panel = document.createElement("div");
-        panel.className = "pmu-settings-root";
-        panel.style.cssText = `box-sizing: border-box; width: 100%; max-width: 1100px; padding: clamp(14px, 2.5vw, 28px); color: var(--text-normal); font-family: var(--font-primary); font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; ${isMac ? 'contain: layout style paint; position: relative;' : ''}`;
+        panel.className = `pmu-settings-root ${isMac ? "pmu-os-mac" : "pmu-os-desktop"}`;
+        panel.style.cssText = "box-sizing: border-box; width: 100%; max-width: 100%; margin: 0 auto; color: var(--text-normal); font-family: var(--font-primary); font-size: clamp(13px, 1vw, 14px); line-height: 1.4; -webkit-font-smoothing: antialiased; container-type: inline-size; container-name: pmu-panel;";
 
         const scopedStyles = document.createElement("style");
         scopedStyles.textContent = `
             .pmu-settings-root *, .pmu-settings-root *::before, .pmu-settings-root *::after {
                 box-sizing: border-box;
                 font-family: inherit;
+            }
+            /* macOS BetterDiscord Detached Modal Window Optimization */
+            .pmu-settings-root.pmu-os-mac {
+                padding: clamp(10px, 2vw, 16px);
+                max-width: 100%;
+                width: 100%;
+                overflow-x: hidden;
+                position: relative;
+                contain: layout style;
+            }
+            /* Windows & Linux Full-Pane Settings Optimization */
+            .pmu-settings-root.pmu-os-desktop {
+                padding: clamp(14px, 2.5vw, 28px);
+                max-width: min(1200px, 100%);
+            }
+            .pmu-header-box {
+                background: var(--background-secondary-alt);
+                border: 1px solid var(--background-tertiary);
+                border-radius: 12px;
+                padding: clamp(14px, 2vw, 18px) clamp(16px, 2.2vw, 20px);
+                margin-bottom: clamp(14px, 2vw, 20px);
+            }
+            .pmu-card {
+                background: var(--background-secondary);
+                border: 1px solid var(--background-tertiary);
+                border-radius: 10px;
+                padding: clamp(12px, 1.8vw, 16px) clamp(14px, 2vw, 18px);
+                display: flex;
+                flex-direction: column;
+                gap: clamp(10px, 1.5vw, 14px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                width: 100%;
+                min-width: 0;
+            }
+            .pmu-rule-row {
+                background: var(--background-secondary-alt);
+                padding: clamp(10px, 1.5vw, 12px);
+                border-radius: 8px;
+                border: 1px solid var(--background-tertiary);
+                display: flex;
+                flex-wrap: wrap;
+                gap: clamp(8px, 1.2vw, 10px);
+                align-items: flex-end;
+                width: 100%;
+                min-width: 0;
             }
             .pmu-btn {
                 display: inline-flex;
@@ -447,17 +492,48 @@ module.exports = class PacMansUtilities {
                 margin-bottom: 5px;
                 white-space: nowrap;
             }
+            .pmu-field-name { flex: 1 1 100px; min-width: 90px; }
+            .pmu-field-ids { flex: 1.5 1 130px; min-width: 110px; }
+            .pmu-field-cond { flex: 1.2 1 120px; min-width: 110px; }
+            .pmu-trailing-group {
+                display: flex;
+                align-items: flex-end;
+                gap: 10px;
+                flex-shrink: 0;
+                margin-left: auto;
+            }
+
+            /* Container & Viewport Width Adaptation */
+            @container pmu-panel (max-width: 720px) {
+                .pmu-field-name, .pmu-field-ids, .pmu-field-cond {
+                    flex: 1 1 calc(50% - 8px);
+                    min-width: 120px;
+                }
+                .pmu-trailing-group {
+                    width: 100%;
+                    justify-content: flex-end;
+                    padding-top: 6px;
+                    border-top: 1px solid var(--background-tertiary);
+                    margin-left: 0;
+                }
+            }
+            @container pmu-panel (max-width: 480px) {
+                .pmu-field-name, .pmu-field-ids, .pmu-field-cond {
+                    flex: 1 1 100%;
+                    min-width: 0;
+                }
+            }
         `;
         panel.appendChild(scopedStyles);
 
         const header = document.createElement("div");
-        header.style.cssText = "background: var(--background-secondary-alt); border: 1px solid var(--background-tertiary); border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;";
+        header.className = "pmu-header-box";
         header.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
-                <span style="font-size: 20px; line-height: 1;">🛡️</span>
-                <h2 style="color: var(--header-primary); font-size: 18px; font-weight: 700; margin: 0; line-height: 1.3;">Pac-Mans Utilities - Server Rules</h2>
+                <span style="font-size: clamp(18px, 1.5vw, 20px); line-height: 1;">🛡️</span>
+                <h2 style="color: var(--header-primary); font-size: clamp(16px, 1.4vw, 18px); font-weight: 700; margin: 0; line-height: 1.3;">Pac-Mans Utilities - Server Rules</h2>
             </div>
-            <p style="color: var(--text-muted); font-size: 13px; line-height: 1.5; margin: 0;">
+            <p style="color: var(--text-muted); font-size: clamp(12px, 1vw, 13px); line-height: 1.5; margin: 0;">
                 Configure server presets, label your rules, and type or paste Role IDs directly. Use ⬆️ / ⬇️ to reorder priority. Export or import individual server configurations below.
             </p>
         `;
@@ -472,7 +548,7 @@ module.exports = class PacMansUtilities {
         const addBtn = document.createElement("button");
         addBtn.className = "pmu-btn";
         addBtn.innerHTML = '<span style="font-size: 16px; font-weight: bold; line-height: 1;">+</span><span>Add Server Config</span>';
-        addBtn.style.cssText = "background: var(--button-primary-background, #5865f2); color: white; padding: 9px 16px; font-size: 13px;";
+        addBtn.style.cssText = "background: var(--button-primary-background, #5865f2); color: white; padding: 8px 14px; font-size: 13px;";
         addBtn.onmouseover = () => addBtn.style.background = "var(--button-primary-background-hover, #4752c4)";
         addBtn.onmouseout = () => addBtn.style.background = "var(--button-primary-background, #5865f2)";
         addBtn.onclick = () => {
@@ -520,7 +596,7 @@ module.exports = class PacMansUtilities {
         const importBtn = document.createElement("button");
         importBtn.className = "pmu-btn";
         importBtn.innerText = "📥 Import Server Config";
-        importBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); padding: 9px 14px; font-size: 13px;";
+        importBtn.style.cssText = "background: var(--background-modifier-selected); color: var(--interactive-active); padding: 8px 14px; font-size: 13px;";
         importBtn.onclick = () => importSingleInput.click();
         toolbarRight.appendChild(importBtn);
 
@@ -528,16 +604,16 @@ module.exports = class PacMansUtilities {
         panel.appendChild(toolbar);
 
         const container = document.createElement("div");
-        container.style.cssText = "display: flex; flex-direction: column; gap: 16px; width: 100%;";
+        container.style.cssText = "display: flex; flex-direction: column; gap: 16px; width: 100%; min-width: 0;";
         panel.appendChild(container);
 
         const renderPresets = () => {
             container.innerHTML = "";
             if (this.settings.presets.length === 0) {
                 const emptyState = document.createElement("div");
-                emptyState.style.cssText = "padding: 36px 20px; text-align: center; background: var(--background-secondary); border: 2px dashed var(--background-modifier-accent); border-radius: 12px; color: var(--text-muted); font-size: 13px;";
+                emptyState.style.cssText = "padding: 32px 16px; text-align: center; background: var(--background-secondary); border: 2px dashed var(--background-modifier-accent); border-radius: 12px; color: var(--text-muted); font-size: 13px;";
                 emptyState.innerHTML = `
-                    <div style="font-size: 30px; margin-bottom: 8px; line-height: 1;">📂</div>
+                    <div style="font-size: 28px; margin-bottom: 8px; line-height: 1;">📂</div>
                     <div style="font-weight: 600; color: var(--header-secondary); margin-bottom: 4px;">No server configs added yet</div>
                     <div>Click '+ Add Server Config' or '📥 Import Server Config' above to get started!</div>
                 `;
@@ -549,13 +625,13 @@ module.exports = class PacMansUtilities {
                 if (serverPreset.collapsed === undefined) serverPreset.collapsed = false;
 
                 const card = document.createElement("div");
-                card.style.cssText = "background: var(--background-secondary); border: 1px solid var(--background-tertiary); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%;";
+                card.className = "pmu-card";
 
                 const cardHeader = document.createElement("div");
-                cardHeader.style.cssText = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--background-tertiary); padding-bottom: 12px; cursor: pointer; user-select: none; flex-wrap: wrap; gap: 12px;";
+                cardHeader.style.cssText = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--background-tertiary); padding-bottom: 10px; cursor: pointer; user-select: none; flex-wrap: wrap; gap: 10px;";
 
                 const guildInfoWrapper = document.createElement("div");
-                guildInfoWrapper.style.cssText = "display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 220px;";
+                guildInfoWrapper.style.cssText = "display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 200px;";
 
                 const guild = this.GuildStore?.getGuild?.(serverPreset.guildId);
                 const guildName = guild?.name;
@@ -570,7 +646,7 @@ module.exports = class PacMansUtilities {
                 }
 
                 const iconImg = document.createElement("img");
-                iconImg.style.cssText = "width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--background-tertiary); flex-shrink: 0;";
+                iconImg.style.cssText = "width: clamp(36px, 3vw, 44px); height: clamp(36px, 3vw, 44px); border-radius: 50%; object-fit: cover; background: var(--background-tertiary); flex-shrink: 0;";
                 iconImg.src = guildIconUrl || "https://cdn.discordapp.com/embed/avatars/0.png";
                 guildInfoWrapper.appendChild(iconImg);
 
@@ -686,10 +762,10 @@ module.exports = class PacMansUtilities {
 
                 if (!serverPreset.collapsed) {
                     const serverTopRow = document.createElement("div");
-                    serverTopRow.style.cssText = "display: flex; gap: 14px; align-items: center; background: var(--background-tertiary); padding: 12px; border-radius: 8px; flex-wrap: wrap;";
+                    serverTopRow.style.cssText = "display: flex; gap: 12px; align-items: center; background: var(--background-tertiary); padding: 10px 12px; border-radius: 8px; flex-wrap: wrap;";
 
                     const guildWrapper = document.createElement("div");
-                    guildWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1 1 240px; min-width: 0;";
+                    guildWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1 1 200px; min-width: 0;";
                     guildWrapper.innerHTML = '<label class="pmu-label" style="color: var(--header-secondary);">Server</label>';
 
                     const guildSelect = document.createElement("select");
@@ -754,7 +830,7 @@ module.exports = class PacMansUtilities {
                     card.appendChild(rulesHeader);
 
                     const rulesList = document.createElement("div");
-                    rulesList.style.cssText = "display: flex; flex-direction: column; gap: 10px; width: 100%;";
+                    rulesList.style.cssText = "display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0;";
 
                     if (!serverPreset.rules || serverPreset.rules.length === 0) {
                         const noRules = document.createElement("div");
@@ -764,7 +840,7 @@ module.exports = class PacMansUtilities {
                     } else {
                         serverPreset.rules.forEach((rule, rIndex) => {
                             const ruleBox = document.createElement("div");
-                            ruleBox.style.cssText = "background: var(--background-secondary-alt); padding: 12px; border-radius: 8px; border: 1px solid var(--background-tertiary); display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; width: 100%;";
+                            ruleBox.className = "pmu-rule-row";
 
                             const orderGroup = document.createElement("div");
                             orderGroup.style.cssText = "display: flex; gap: 4px; align-items: center; height: 32px; flex-shrink: 0;";
@@ -805,7 +881,8 @@ module.exports = class PacMansUtilities {
                             ruleBox.appendChild(orderGroup);
 
                             const nameWrapper = document.createElement("div");
-                            nameWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1 1 110px; min-width: 100px;";
+                            nameWrapper.className = "pmu-field-name";
+                            nameWrapper.style.cssText = "display: flex; flex-direction: column;";
                             nameWrapper.innerHTML = '<label class="pmu-label">Rule Label</label>';
 
                             const nameInput = document.createElement("input");
@@ -821,7 +898,8 @@ module.exports = class PacMansUtilities {
                             ruleBox.appendChild(nameWrapper);
 
                             const targetWrapper = document.createElement("div");
-                            targetWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.5 1 150px; min-width: 130px;";
+                            targetWrapper.className = "pmu-field-ids";
+                            targetWrapper.style.cssText = "display: flex; flex-direction: column;";
                             targetWrapper.innerHTML = '<label class="pmu-label">Target Role ID(s)</label>';
 
                             const roleInput = document.createElement("input");
@@ -837,7 +915,8 @@ module.exports = class PacMansUtilities {
                             ruleBox.appendChild(targetWrapper);
 
                             const excWrapper = document.createElement("div");
-                            excWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.5 1 150px; min-width: 130px;";
+                            excWrapper.className = "pmu-field-ids";
+                            excWrapper.style.cssText = "display: flex; flex-direction: column;";
                             excWrapper.innerHTML = '<label class="pmu-label">Exception Role ID(s)</label>';
 
                             const excInput = document.createElement("input");
@@ -853,7 +932,8 @@ module.exports = class PacMansUtilities {
                             ruleBox.appendChild(excWrapper);
 
                             const cWrapper = document.createElement("div");
-                            cWrapper.style.cssText = "display: flex; flex-direction: column; flex: 1.2 1 135px; min-width: 125px;";
+                            cWrapper.className = "pmu-field-cond";
+                            cWrapper.style.cssText = "display: flex; flex-direction: column;";
                             cWrapper.innerHTML = '<label class="pmu-label">Condition</label>';
 
                             const cSelect = document.createElement("select");
@@ -872,7 +952,7 @@ module.exports = class PacMansUtilities {
                             ruleBox.appendChild(cWrapper);
 
                             const trailingControls = document.createElement("div");
-                            trailingControls.style.cssText = "display: flex; align-items: flex-end; gap: 12px; flex-shrink: 0;";
+                            trailingControls.className = "pmu-trailing-group";
 
                             const colWrapper = document.createElement("div");
                             colWrapper.style.cssText = "display: flex; flex-direction: column; align-items: center;";

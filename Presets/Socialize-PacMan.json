@@ -1,0 +1,43 @@
+{
+  "guildId": "505974446914535426",
+  "enabled": true,
+  "rules": [
+    {
+      "name": "Staff Role Check",
+      "roleIds": "507792845013385228, 582691672333484043, 804476452333813780, 507792869273370634, 511630030938308639",
+      "exceptionRoleIds": "",
+      "condition": "has_any",
+      "highlightColor": "#9b00ff",
+      "enabled": true,
+      "copyId": false
+    },
+    {
+      "name": "Custom Role Check",
+      "roleIds": "1566606196985565276",
+      "exceptionRoleIds": "",
+      "condition": "has_all",
+      "highlightColor": "#47f04a",
+      "enabled": true,
+      "copyId": false
+    },
+    {
+      "name": "Booster Role Check",
+      "roleIds": "585532701319364618",
+      "exceptionRoleIds": "771102844048244736, 507989338638909458",
+      "condition": "has_all",
+      "highlightColor": "#ffff00",
+      "enabled": true,
+      "copyId": true
+    },
+    {
+      "name": "Camera Role Check",
+      "roleIds": "507989338638909458",
+      "exceptionRoleIds": "771102844048244736, 585532701319364618",
+      "condition": "lacks_all",
+      "highlightColor": "#f04747",
+      "enabled": true,
+      "copyId": true
+    }
+  ],
+  "collapsed": true
+}

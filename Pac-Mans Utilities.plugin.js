@@ -2,7 +2,7 @@
  * @name Pac-Mans Utilities
  * @author the.pacman.is.back
  * @authorId 280218268038463489
- * @version 3.0.6
+ * @version 3.0.7
  * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry, custom rule labeling, and individual server preset import/export.
  */
 
@@ -18,7 +18,16 @@ const hexToRgba = (hex, alpha) => {
     return result;
 };
 
-const parseIds = (str) => String(str || "").split(/[\s,]+/).filter(Boolean);
+// Memoized string -> id-array parsing. Rule role-id strings are re-evaluated every
+// user/tick; caching by string value avoids re-splitting/regexing the same text repeatedly.
+const parsedIdsCache = new Map();
+const parseIds = (str) => {
+    const key = String(str || "");
+    if (parsedIdsCache.has(key)) return parsedIdsCache.get(key);
+    const result = key.split(/[\s,]+/).filter(Boolean);
+    parsedIdsCache.set(key, result);
+    return result;
+};
 
 const getFiber = (node) => {
     const key = Object.keys(node).find(k => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"));
@@ -35,6 +44,13 @@ module.exports = class PacMansUtilities {
         this.listener = null;
         this.lastChannelId = null;
         this.knownUsers = new Set();
+        // Throttles repeated requestMembers() calls for the same guild/user pair so the
+        // highlight loop doesn't spam the gateway every tick while a member is still unresolved.
+        this.memberRequestTimestamps = new Map();
+        this.MEMBER_REQUEST_COOLDOWN = 10000;
+        // Tracks the last highlight state actually applied to a given element so the
+        // per-second loop can skip redundant inline-style writes (avoids needless style recalcs).
+        this.appliedHighlightState = new WeakMap();
         this.loadSettings();
     }
 
@@ -164,15 +180,32 @@ module.exports = class PacMansUtilities {
         if (this.VoiceStateStore && this.listener) this.VoiceStateStore.removeChangeListener(this.listener);
         if (this.highlightInterval) clearInterval(this.highlightInterval);
         this.clearAllHighlights();
+        this.memberRequestTimestamps.clear();
     }
 
     getGuildMember(guildId, userId) {
         let member = this.GuildMemberStore?.getMember?.(guildId, userId);
         if (!member && this.GuildActions?.requestMembers) {
-            this.GuildActions.requestMembers(guildId, [userId]);
+            const key = `${guildId}:${userId}`;
+            const now = Date.now();
+            const last = this.memberRequestTimestamps.get(key) || 0;
+            if (now - last > this.MEMBER_REQUEST_COOLDOWN) {
+                this.memberRequestTimestamps.set(key, now);
+                this.GuildActions.requestMembers(guildId, [userId]);
+                this.pruneMemberRequestTimestamps(now);
+            }
             member = this.GuildMemberStore?.getMember?.(guildId, userId);
         }
         return member;
+    }
+
+    pruneMemberRequestTimestamps(now) {
+        if (this.memberRequestTimestamps.size < 500) return;
+        for (const [key, ts] of this.memberRequestTimestamps) {
+            if (now - ts > this.MEMBER_REQUEST_COOLDOWN * 5) {
+                this.memberRequestTimestamps.delete(key);
+            }
+        }
     }
 
     evaluateRule(member, rule) {
@@ -215,21 +248,32 @@ module.exports = class PacMansUtilities {
         }
     }
 
-    getGuildIdFromNode(node) {
+    // Single fiber walk that recovers both the user id and the guild id for a node,
+    // replacing two separate tree walks that ran per element, per tick.
+    getNodeInfo(node) {
+        let userId = null;
+        let guildId = null;
         let fiber = getFiber(node);
-        while (fiber) {
+        while (fiber && (!userId || !guildId)) {
             const props = fiber.memoizedProps || fiber.props;
             if (props) {
-                if (props.guildId) return props.guildId;
-                if (props.channel?.guild_id) return props.channel.guild_id;
-                if (props.channelId) {
-                    const ch = this.ChannelStore?.getChannel?.(props.channelId);
-                    if (ch?.guild_id) return ch.guild_id;
+                if (!userId) {
+                    if (props.user?.id) userId = props.user.id;
+                    else if (props.userId) userId = props.userId;
+                    else if (props.message?.author?.id) userId = props.message.author.id;
+                }
+                if (!guildId) {
+                    if (props.guildId) guildId = props.guildId;
+                    else if (props.channel?.guild_id) guildId = props.channel.guild_id;
+                    else if (props.channelId) {
+                        const ch = this.ChannelStore?.getChannel?.(props.channelId);
+                        if (ch?.guild_id) guildId = ch.guild_id;
+                    }
                 }
             }
             fiber = fiber.return;
         }
-        return null;
+        return { userId, guildId };
     }
 
     updateAllVCHighlights() {
@@ -248,7 +292,7 @@ module.exports = class PacMansUtilities {
         const voiceUsers = document.querySelectorAll('[class*="voiceUser"]');
         for (let i = 0; i < voiceUsers.length; i++) {
             const div = voiceUsers[i];
-            const userId = this.extractUserIdFromNode(div);
+            const { userId, guildId: nodeGuildId } = this.getNodeInfo(div);
             const targetEl = div.querySelector('[class*="content"]') || div.querySelector('[class*="avatar"]') || div;
             if (!targetEl) continue;
 
@@ -259,7 +303,7 @@ module.exports = class PacMansUtilities {
                     continue;
                 }
 
-                const guildId = this.getGuildIdFromNode(div) || defaultGuildId;
+                const guildId = nodeGuildId || defaultGuildId;
                 if (!guildId) {
                     this.resetElementStyle(targetEl);
                     continue;
@@ -283,15 +327,7 @@ module.exports = class PacMansUtilities {
                 }
 
                 if (primaryColor) {
-                    targetEl.style.boxShadow = `inset 0 0 0 2px ${primaryColor}`;
-                    targetEl.style.backgroundColor = hexToRgba(primaryColor, 0.2);
-                    targetEl.style.borderRadius = "4px";
-                    if (isMac) {
-                        targetEl.style.webkitTransform = "translateZ(0)";
-                        targetEl.style.transform = "translateZ(0)";
-                        targetEl.style.webkitBackfaceVisibility = "hidden";
-                        targetEl.style.backfaceVisibility = "hidden";
-                    }
+                    this.applyHighlightStyle(targetEl, primaryColor);
                 } else {
                     this.resetElementStyle(targetEl);
                 }
@@ -301,7 +337,27 @@ module.exports = class PacMansUtilities {
         }
     }
 
+    applyHighlightStyle(el, color) {
+        // Skip the DOM write entirely if this element already has this exact color applied.
+        if (this.appliedHighlightState.get(el) === color) return;
+        this.appliedHighlightState.set(el, color);
+
+        el.style.boxShadow = `inset 0 0 0 2px ${color}`;
+        el.style.backgroundColor = hexToRgba(color, 0.2);
+        el.style.borderRadius = "4px";
+        if (isMac) {
+            el.style.webkitTransform = "translateZ(0)";
+            el.style.transform = "translateZ(0)";
+            el.style.webkitBackfaceVisibility = "hidden";
+            el.style.backfaceVisibility = "hidden";
+        }
+    }
+
     resetElementStyle(el) {
+        // Skip the DOM write if this element is already known to be in the reset state.
+        if (this.appliedHighlightState.get(el) === null) return;
+        this.appliedHighlightState.set(el, null);
+
         el.style.backgroundColor = "";
         el.style.boxShadow = "";
         el.style.borderRadius = "";
@@ -311,20 +367,6 @@ module.exports = class PacMansUtilities {
             el.style.webkitBackfaceVisibility = "";
             el.style.backfaceVisibility = "";
         }
-    }
-
-    extractUserIdFromNode(node) {
-        let fiber = getFiber(node);
-        while (fiber) {
-            const props = fiber.memoizedProps || fiber.props;
-            if (props) {
-                if (props.user?.id) return props.user.id;
-                if (props.userId) return props.userId;
-                if (props.message?.author?.id) return props.message.author.id;
-            }
-            fiber = fiber.return;
-        }
-        return null;
     }
 
     getCurrentChannelUsers() {

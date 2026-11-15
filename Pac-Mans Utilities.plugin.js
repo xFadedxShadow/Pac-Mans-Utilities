@@ -2,8 +2,8 @@
  * @name Pac-Mans Utilities
  * @author the.pacman.is.back
  * @authorId 280218268038463489
- * @version 3.0.7
- * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry, custom rule labeling, and individual server preset import/export.
+ * @version 3.0.11
+ * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry or a searchable in-field role picker, custom rule labeling, and individual server preset import/export.
  */
 
 const rgbaCache = new Map();
@@ -113,6 +113,7 @@ module.exports = class PacMansUtilities {
         this.GuildMemberStore = wp.getStore("GuildMemberStore") || wp.getModule(m => m?.getMember);
         this.GuildStore = wp.getStore("GuildStore") || wp.getModule(m => m?.getGuild);
         this.GuildActions = wp.getStore("GuildActions") || wp.getModule(m => m?.requestMembers);
+        this.ensureRoleStore();
 
         if (!this.SelectedChannelStore || !this.VoiceStateStore || !this.UserStore) {
             BdApi.UI.showToast("Pac-Mans Utilities: Failed to locate required Discord stores.", { type: "error" });
@@ -391,8 +392,428 @@ module.exports = class PacMansUtilities {
         return SelectedGuildStore?.getGuildId?.() || null;
     }
 
+    // --- ROLE PICKER (searchable grid of a guild's roles) ---
+    ensureRoleStore() {
+        if (this.GuildRoleStore) return;
+        const wp = BdApi.Webpack;
+        // Discord's real role store exposes getRolesSnapshot(guildId) (and getRole/getRoles).
+        this.GuildRoleStore = wp.getStore("GuildRoleStore") || wp.getModule(m => m?.getRolesSnapshot && m?.getRole);
+    }
+
+    getGuildRoles(guildId) {
+        this.ensureRoleStore();
+        if (!guildId) return [];
+
+        let rolesObj = null;
+        if (this.GuildRoleStore?.getRolesSnapshot) {
+            rolesObj = this.GuildRoleStore.getRolesSnapshot(guildId);
+        } else if (this.GuildRoleStore?.getRoles) {
+            rolesObj = this.GuildRoleStore.getRoles(guildId);
+        }
+
+        // Fall back to the roles embedded directly on the Guild object itself,
+        // mirroring `guild?.roles ?? GuildRoleStore?.getRolesSnapshot(guild?.id)`.
+        if (!rolesObj) {
+            const guild = this.GuildStore?.getGuild?.(guildId);
+            rolesObj = guild?.roles || null;
+        }
+
+        return rolesObj ? Object.values(rolesObj).filter(Boolean) : [];
+    }
+
+    injectRolePickerStyles() {
+        const existing = document.getElementById("pmu-rp-styles");
+        if (existing) existing.remove();
+        const style = document.createElement("style");
+        style.id = "pmu-rp-styles";
+        style.textContent = `
+            .pmu-rp-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                color-scheme: dark;
+            }
+            .pmu-rp-modal {
+                background: #313338 !important;
+                color: #f2f3f5 !important;
+                width: min(640px, 92vw);
+                max-height: 80vh;
+                border-radius: 10px;
+                border: 1px solid #1e1f22;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+                overflow: hidden;
+                font-family: var(--font-primary, "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif);
+            }
+            .pmu-rp-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                padding: 14px 16px;
+                background: #2b2d31;
+                border-bottom: 1px solid #1e1f22;
+                flex-shrink: 0;
+            }
+            .pmu-rp-title {
+                font-size: 15px;
+                font-weight: 700;
+                color: #ffffff !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .pmu-rp-close {
+                background: transparent;
+                border: none;
+                color: #b5bac1 !important;
+                font-size: 16px;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 4px;
+                flex-shrink: 0;
+            }
+            .pmu-rp-close:hover {
+                background: #3f4147;
+                color: #ffffff !important;
+            }
+            .pmu-rp-search-wrap {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                background: #313338;
+                border-bottom: 1px solid #1e1f22;
+                flex-shrink: 0;
+            }
+            .pmu-rp-search {
+                flex: 1;
+                min-width: 0;
+                height: 32px;
+                padding: 0 10px;
+                background: #1e1f22 !important;
+                color: #f2f3f5 !important;
+                caret-color: #f2f3f5;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 5px;
+                font-size: 13px;
+                line-height: 30px;
+                outline: none;
+                margin: 0;
+                -webkit-appearance: none;
+                appearance: none;
+            }
+            .pmu-rp-search::placeholder {
+                color: #949ba4 !important;
+                opacity: 1;
+            }
+            .pmu-rp-search:focus {
+                border-color: #5865f2;
+            }
+            .pmu-rp-count {
+                font-size: 11px;
+                font-weight: 700;
+                color: #b5bac1 !important;
+                white-space: nowrap;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+            }
+            .pmu-rp-grid-wrap {
+                overflow-y: auto;
+                padding: 12px 16px;
+                flex: 1;
+                background: #313338;
+            }
+            .pmu-rp-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 8px;
+            }
+            .pmu-rp-empty {
+                grid-column: 1 / -1;
+                text-align: center;
+                color: #949ba4 !important;
+                font-size: 13px;
+                padding: 20px 0;
+            }
+            .pmu-rp-cell {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 10px;
+                background: #2b2d31 !important;
+                border: 1px solid #1e1f22;
+                border-radius: 6px;
+                cursor: pointer;
+                min-width: 0;
+                transition: background 0.1s ease, border-color 0.1s ease;
+            }
+            .pmu-rp-cell:hover {
+                background: #35373c !important;
+            }
+            .pmu-rp-cell-checked {
+                border-color: #5865f2 !important;
+                background: #3f4147 !important;
+            }
+            .pmu-rp-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+            .pmu-rp-text {
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+                overflow: hidden;
+            }
+            .pmu-rp-name {
+                font-size: 12.5px;
+                font-weight: 600;
+                color: #f2f3f5 !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .pmu-rp-id {
+                font-size: 10px;
+                color: #949ba4 !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .pmu-rp-footer {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 12px 16px;
+                background: #2b2d31;
+                border-top: 1px solid #1e1f22;
+                flex-shrink: 0;
+            }
+            .pmu-rp-checkbox {
+                width: 17px;
+                height: 17px;
+                margin: 0;
+                cursor: pointer;
+                accent-color: #5865f2;
+                flex-shrink: 0;
+            }
+            .pmu-rp-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+                line-height: 1.2;
+                cursor: pointer;
+                white-space: nowrap;
+                flex-shrink: 0;
+                -webkit-appearance: none;
+                appearance: none;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    openRolePicker(guildId, inputEl) {
+        if (!guildId) {
+            BdApi.UI.showToast("Set a Server for this config before picking roles.", { type: "error" });
+            return;
+        }
+
+        const roles = this.getGuildRoles(guildId).sort((a, b) => (b.position ?? 0) - (a.position ?? 0));
+        if (roles.length === 0) {
+            BdApi.UI.showToast("No roles found for this server yet. Open the server in Discord, then try again.", { type: "error" });
+            return;
+        }
+
+        this.injectRolePickerStyles();
+
+        const selected = new Set(parseIds(inputEl.value));
+
+        const overlay = document.createElement("div");
+        overlay.className = "pmu-rp-overlay";
+
+        const modal = document.createElement("div");
+        modal.className = "pmu-rp-modal";
+        overlay.appendChild(modal);
+
+        const closeModal = () => {
+            overlay.remove();
+            document.removeEventListener("keydown", onKeyDown);
+        };
+        const onKeyDown = (e) => { if (e.key === "Escape") closeModal(); };
+        document.addEventListener("keydown", onKeyDown);
+        overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+
+        const header = document.createElement("div");
+        header.className = "pmu-rp-header";
+
+        const guild = this.GuildStore?.getGuild?.(guildId);
+        const titleEl = document.createElement("span");
+        titleEl.className = "pmu-rp-title";
+        titleEl.innerText = guild?.name ? `Select Roles — ${guild.name}` : "Select Roles";
+        header.appendChild(titleEl);
+
+        const closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.className = "pmu-rp-close";
+        closeBtn.innerText = "✕";
+        closeBtn.onclick = closeModal;
+        header.appendChild(closeBtn);
+        modal.appendChild(header);
+
+        const searchWrap = document.createElement("div");
+        searchWrap.className = "pmu-rp-search-wrap";
+
+        const searchInput = document.createElement("input");
+        searchInput.type = "text";
+        searchInput.className = "pmu-rp-search";
+        searchInput.placeholder = "Search by role name or ID...";
+        searchWrap.appendChild(searchInput);
+
+        const countLabel = document.createElement("span");
+        countLabel.className = "pmu-rp-count";
+        searchWrap.appendChild(countLabel);
+        modal.appendChild(searchWrap);
+
+        const gridWrap = document.createElement("div");
+        gridWrap.className = "pmu-rp-grid-wrap";
+        const grid = document.createElement("div");
+        grid.className = "pmu-rp-grid";
+        gridWrap.appendChild(grid);
+        modal.appendChild(gridWrap);
+
+        const updateCount = () => {
+            countLabel.innerText = `${selected.size} selected`;
+        };
+
+        const cellEntries = [];
+
+        roles.forEach(role => {
+            const cell = document.createElement("label");
+            cell.className = "pmu-rp-cell";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "pmu-rp-checkbox";
+            checkbox.checked = selected.has(role.id);
+            cell.appendChild(checkbox);
+
+            const colorInt = role.color;
+            const colorHex = colorInt ? `#${colorInt.toString(16).padStart(6, "0")}` : "#99aab5";
+            const dot = document.createElement("span");
+            dot.className = "pmu-rp-dot";
+            dot.style.background = colorHex;
+            cell.appendChild(dot);
+
+            const textWrap = document.createElement("span");
+            textWrap.className = "pmu-rp-text";
+
+            const nameSpan = document.createElement("span");
+            nameSpan.className = "pmu-rp-name";
+            nameSpan.innerText = role.name || "unknown-role";
+            textWrap.appendChild(nameSpan);
+
+            const idSpan = document.createElement("span");
+            idSpan.className = "pmu-rp-id";
+            idSpan.innerText = role.id;
+            textWrap.appendChild(idSpan);
+
+            cell.appendChild(textWrap);
+
+            const setChecked = (checked) => {
+                checkbox.checked = checked;
+                cell.classList.toggle("pmu-rp-cell-checked", checked);
+            };
+            setChecked(checkbox.checked);
+
+            checkbox.onchange = () => {
+                if (checkbox.checked) selected.add(role.id);
+                else selected.delete(role.id);
+                setChecked(checkbox.checked);
+                updateCount();
+            };
+
+            cellEntries.push({ el: cell, setChecked, searchText: `${(role.name || "").toLowerCase()} ${role.id}` });
+            grid.appendChild(cell);
+        });
+
+        updateCount();
+
+        searchInput.oninput = () => {
+            const q = searchInput.value.trim().toLowerCase();
+            let visibleCount = 0;
+            cellEntries.forEach(({ el, searchText }) => {
+                const match = !q || searchText.includes(q);
+                el.style.display = match ? "" : "none";
+                if (match) visibleCount++;
+            });
+            grid.querySelector(".pmu-rp-empty")?.remove();
+            if (visibleCount === 0) {
+                const empty = document.createElement("div");
+                empty.className = "pmu-rp-empty";
+                empty.innerText = "No roles match your search.";
+                grid.appendChild(empty);
+            }
+        };
+
+        const footer = document.createElement("div");
+        footer.className = "pmu-rp-footer";
+
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "pmu-rp-btn";
+        clearBtn.innerText = "Clear All";
+        clearBtn.style.cssText = "background: transparent; color: #f23f43 !important; font-size: 12px; padding: 8px 12px;";
+        clearBtn.onclick = () => {
+            selected.clear();
+            cellEntries.forEach(({ setChecked }) => setChecked(false));
+            updateCount();
+        };
+        footer.appendChild(clearBtn);
+
+        const spacer = document.createElement("div");
+        spacer.style.flex = "1";
+        footer.appendChild(spacer);
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "pmu-rp-btn";
+        cancelBtn.innerText = "Cancel";
+        cancelBtn.style.cssText = "background: #3f4147 !important; color: #f2f3f5 !important; font-size: 13px; padding: 8px 16px;";
+        cancelBtn.onclick = closeModal;
+        footer.appendChild(cancelBtn);
+
+        const applyBtn = document.createElement("button");
+        applyBtn.type = "button";
+        applyBtn.className = "pmu-rp-btn";
+        applyBtn.innerText = "Apply";
+        applyBtn.style.cssText = "background: #5865f2 !important; color: #ffffff !important; font-size: 13px; padding: 8px 16px;";
+        applyBtn.onclick = () => {
+            inputEl.value = Array.from(selected).join(", ");
+            inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+            closeModal();
+        };
+        footer.appendChild(applyBtn);
+
+        modal.appendChild(footer);
+
+        document.body.appendChild(overlay);
+        searchInput.focus();
+    }
+
     // --- SETTINGS PANEL UI (Cross-OS Resizable Modal Architecture) ---
     getSettingsPanel() {
+        this.ensureRoleStore();
         const panel = document.createElement("div");
         panel.className = `pmu-settings-root ${isMac ? "pmu-os-mac" : "pmu-os-desktop"}`;
         panel.style.cssText = "box-sizing: border-box; width: 100%; max-width: 100%; margin: 0 auto; color: var(--text-normal); font-family: var(--font-primary); font-size: clamp(13px, 1vw, 14px); line-height: 1.4; -webkit-font-smoothing: antialiased; container-type: inline-size; container-name: pmu-panel;";
@@ -549,6 +970,38 @@ module.exports = class PacMansUtilities {
                 flex-shrink: 0;
                 margin-left: auto;
             }
+            /* Role-id fields: the picker button lives INSIDE the input, not beside it */
+            .pmu-field-ids-wrap {
+                position: relative;
+                width: 100%;
+            }
+            .pmu-input-with-btn {
+                padding-right: 32px;
+            }
+            .pmu-inline-pick-btn {
+                position: absolute;
+                right: 3px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 24px;
+                height: 24px;
+                padding: 0;
+                font-size: 14px;
+                font-weight: 700;
+                line-height: 1;
+                border: none;
+                border-radius: 4px;
+                background: var(--background-modifier-selected);
+                color: var(--interactive-active);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .pmu-inline-pick-btn:hover {
+                background: var(--background-modifier-hover);
+            }
 
             /* Container & Viewport Width Adaptation */
             @container pmu-panel (max-width: 720px) {
@@ -581,7 +1034,7 @@ module.exports = class PacMansUtilities {
                 <h2 style="color: var(--header-primary); font-size: clamp(16px, 1.4vw, 18px); font-weight: 700; margin: 0; line-height: 1.3;">Pac-Mans Utilities - Server Rules</h2>
             </div>
             <p style="color: var(--text-muted); font-size: clamp(12px, 1vw, 13px); line-height: 1.5; margin: 0;">
-                Configure server presets, label your rules, and type or paste Role IDs directly. Use ⬆️ / ⬇️ to reorder priority. Export or import individual server configurations below.
+                Configure server presets, label your rules, and type or paste Role IDs directly — or use the "+" inside the field to pick roles from a searchable list. Use ⬆️ / ⬇️ to reorder priority. Export or import individual server configurations below.
             </p>
         `;
         panel.appendChild(header);
@@ -944,38 +1397,66 @@ module.exports = class PacMansUtilities {
                             nameWrapper.appendChild(nameInput);
                             ruleBox.appendChild(nameWrapper);
 
+                            // --- Target Role ID(s): "+" lives INSIDE the input ---
                             const targetWrapper = document.createElement("div");
                             targetWrapper.className = "pmu-field-ids";
                             targetWrapper.style.cssText = "display: flex; flex-direction: column;";
                             targetWrapper.innerHTML = '<label class="pmu-label">Target Role ID(s)</label>';
 
+                            const targetFieldWrap = document.createElement("div");
+                            targetFieldWrap.className = "pmu-field-ids-wrap";
+
                             const roleInput = document.createElement("input");
                             roleInput.type = "text";
-                            roleInput.className = "pmu-input";
+                            roleInput.className = "pmu-input pmu-input-with-btn";
                             roleInput.value = rule.roleIds || "";
                             roleInput.placeholder = "e.g. 1234567890";
                             roleInput.oninput = (e) => {
                                 rule.roleIds = e.target.value;
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
-                            targetWrapper.appendChild(roleInput);
+                            targetFieldWrap.appendChild(roleInput);
+
+                            const targetPickerBtn = document.createElement("button");
+                            targetPickerBtn.type = "button";
+                            targetPickerBtn.className = "pmu-inline-pick-btn";
+                            targetPickerBtn.innerText = "+";
+                            targetPickerBtn.title = "Pick roles from this server";
+                            targetPickerBtn.onclick = () => this.openRolePicker(serverPreset.guildId, roleInput);
+                            targetFieldWrap.appendChild(targetPickerBtn);
+
+                            targetWrapper.appendChild(targetFieldWrap);
                             ruleBox.appendChild(targetWrapper);
 
+                            // --- Exception Role ID(s): "+" lives INSIDE the input ---
                             const excWrapper = document.createElement("div");
                             excWrapper.className = "pmu-field-ids";
                             excWrapper.style.cssText = "display: flex; flex-direction: column;";
                             excWrapper.innerHTML = '<label class="pmu-label">Exception Role ID(s)</label>';
 
+                            const excFieldWrap = document.createElement("div");
+                            excFieldWrap.className = "pmu-field-ids-wrap";
+
                             const excInput = document.createElement("input");
                             excInput.type = "text";
-                            excInput.className = "pmu-input";
+                            excInput.className = "pmu-input pmu-input-with-btn";
                             excInput.value = rule.exceptionRoleIds || "";
                             excInput.placeholder = "e.g. 1122334455";
                             excInput.oninput = (e) => {
                                 rule.exceptionRoleIds = e.target.value;
                                 BdApi.Data.save("PacMansUtilities", "settings", this.settings);
                             };
-                            excWrapper.appendChild(excInput);
+                            excFieldWrap.appendChild(excInput);
+
+                            const excPickerBtn = document.createElement("button");
+                            excPickerBtn.type = "button";
+                            excPickerBtn.className = "pmu-inline-pick-btn";
+                            excPickerBtn.innerText = "+";
+                            excPickerBtn.title = "Pick roles from this server";
+                            excPickerBtn.onclick = () => this.openRolePicker(serverPreset.guildId, excInput);
+                            excFieldWrap.appendChild(excPickerBtn);
+
+                            excWrapper.appendChild(excFieldWrap);
                             ruleBox.appendChild(excWrapper);
 
                             const cWrapper = document.createElement("div");

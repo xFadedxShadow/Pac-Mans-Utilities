@@ -1,3 +1,11 @@
+/**
+ * @name Pac-Mans Utilities
+ * @author the.pacman.is.back
+ * @authorId 280218268038463489
+ * @version 1.0.0
+ * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry or a searchable in-field role picker, custom rule labeling, and individual server preset import/export.
+ */
+
 const rgbaCache = new Map();
 const hexToRgba = (hex, alpha) => {
     const key = `${hex}_${alpha}`;

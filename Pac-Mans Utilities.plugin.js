@@ -2,7 +2,7 @@
  * @name Pac-Mans Utilities
  * @author the.pacman.is.back
  * @authorId 280218268038463489
- * @version 3.0.11
+ * @version 3.0.13
  * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry or a searchable in-field role picker, custom rule labeling, and individual server preset import/export.
  */
 
@@ -18,13 +18,12 @@ const hexToRgba = (hex, alpha) => {
     return result;
 };
 
-// Memoized string -> id-array parsing. Rule role-id strings are re-evaluated every
-// user/tick; caching by string value avoids re-splitting/regexing the same text repeatedly.
+// Memoized string -> Set parsing for $O(1)$ membership lookups instead of $O(N)$ array searches.
 const parsedIdsCache = new Map();
-const parseIds = (str) => {
+const parseIdsSet = (str) => {
     const key = String(str || "");
     if (parsedIdsCache.has(key)) return parsedIdsCache.get(key);
-    const result = key.split(/[\s,]+/).filter(Boolean);
+    const result = new Set(key.split(/[\s,]+/).filter(Boolean));
     parsedIdsCache.set(key, result);
     return result;
 };
@@ -44,12 +43,8 @@ module.exports = class PacMansUtilities {
         this.listener = null;
         this.lastChannelId = null;
         this.knownUsers = new Set();
-        // Throttles repeated requestMembers() calls for the same guild/user pair so the
-        // highlight loop doesn't spam the gateway every tick while a member is still unresolved.
         this.memberRequestTimestamps = new Map();
         this.MEMBER_REQUEST_COOLDOWN = 10000;
-        // Tracks the last highlight state actually applied to a given element so the
-        // per-second loop can skip redundant inline-style writes (avoids needless style recalcs).
         this.appliedHighlightState = new WeakMap();
         this.loadSettings();
     }
@@ -213,44 +208,64 @@ module.exports = class PacMansUtilities {
         const memberRoles = member?.roles || member?.roleIds;
         if (!memberRoles) return false;
 
-        const exceptionIdsArr = parseIds(rule.exceptionRoleIds);
-        if (exceptionIdsArr.length > 0) {
-            if (exceptionIdsArr.some(excId => memberRoles.some(r => (typeof r === "string" ? r === excId : r?.id === excId)))) {
-                return false;
+        // Convert member roles array to a fast lookup Set once per evaluation
+        const memberRoleSet = new Set(
+            Array.isArray(memberRoles) 
+                ? memberRoles.map(r => (typeof r === "string" ? r : r?.id)).filter(Boolean)
+                : []
+        );
+
+        const exceptionIdsSet = parseIdsSet(rule.exceptionRoleIds);
+        if (exceptionIdsSet.size > 0) {
+            for (const excId of exceptionIdsSet) {
+                if (memberRoleSet.has(excId)) return false;
             }
         }
 
-        const roleIdsArr = parseIds(rule.roleIds);
-        if (roleIdsArr.length === 0) return false;
+        const roleIdsSet = parseIdsSet(rule.roleIds);
+        if (roleIdsSet.size === 0) return false;
 
         const condition = rule.condition || "lacks_any";
-        const hasRole = (targetId) => memberRoles.some(r => (typeof r === "string" ? r === targetId : r?.id === targetId));
 
         switch (condition) {
-            case "has_all":
-                return roleIdsArr.every(hasRole);
-            case "has_any":
-                return roleIdsArr.some(hasRole);
-            case "lacks_all":
-                return roleIdsArr.every(id => !hasRole(id));
+            case "has_all": {
+                for (const id of roleIdsSet) {
+                    if (!memberRoleSet.has(id)) return false;
+                }
+                return true;
+            }
+            case "has_any": {
+                for (const id of roleIdsSet) {
+                    if (memberRoleSet.has(id)) return true;
+                }
+                return false;
+            }
+            case "lacks_all": {
+                for (const id of roleIdsSet) {
+                    if (memberRoleSet.has(id)) return false;
+                }
+                return true;
+            }
             case "lacks_any":
             case "missing":
-            default:
-                return roleIdsArr.some(id => !hasRole(id));
+            default: {
+                for (const id of roleIdsSet) {
+                    if (!memberRoleSet.has(id)) return true;
+                }
+                return false;
+            }
         }
     }
 
     clearAllHighlights() {
         const elements = document.querySelectorAll('[class*="voiceUser"]');
-        for (let i = 0; i < elements.length; i++) {
+        for (let i = 0, len = elements.length; i < len; i++) {
             const div = elements[i];
             const targetEl = div.querySelector('[class*="content"]') || div.querySelector('[class*="avatar"]') || div;
             if (targetEl) this.resetElementStyle(targetEl);
         }
     }
 
-    // Single fiber walk that recovers both the user id and the guild id for a node,
-    // replacing two separate tree walks that ran per element, per tick.
     getNodeInfo(node) {
         let userId = null;
         let guildId = null;
@@ -291,7 +306,7 @@ module.exports = class PacMansUtilities {
         }
 
         const voiceUsers = document.querySelectorAll('[class*="voiceUser"]');
-        for (let i = 0; i < voiceUsers.length; i++) {
+        for (let i = 0, len = voiceUsers.length; i < len; i++) {
             const div = voiceUsers[i];
             const { userId, guildId: nodeGuildId } = this.getNodeInfo(div);
             const targetEl = div.querySelector('[class*="content"]') || div.querySelector('[class*="avatar"]') || div;
@@ -319,7 +334,7 @@ module.exports = class PacMansUtilities {
                 const member = this.getGuildMember(guildId, userId);
                 let primaryColor = null;
 
-                for (let j = 0; j < serverConfig.rules.length; j++) {
+                for (let j = 0, rLen = serverConfig.rules.length; j < rLen; j++) {
                     const rule = serverConfig.rules[j];
                     if (rule.enabled && rule.roleIds && this.evaluateRule(member, rule)) {
                         primaryColor = rule.highlightColor || "#f04747";
@@ -339,7 +354,6 @@ module.exports = class PacMansUtilities {
     }
 
     applyHighlightStyle(el, color) {
-        // Skip the DOM write entirely if this element already has this exact color applied.
         if (this.appliedHighlightState.get(el) === color) return;
         this.appliedHighlightState.set(el, color);
 
@@ -355,7 +369,6 @@ module.exports = class PacMansUtilities {
     }
 
     resetElementStyle(el) {
-        // Skip the DOM write if this element is already known to be in the reset state.
         if (this.appliedHighlightState.get(el) === null) return;
         this.appliedHighlightState.set(el, null);
 
@@ -392,11 +405,9 @@ module.exports = class PacMansUtilities {
         return SelectedGuildStore?.getGuildId?.() || null;
     }
 
-    // --- ROLE PICKER (searchable grid of a guild's roles) ---
     ensureRoleStore() {
         if (this.GuildRoleStore) return;
         const wp = BdApi.Webpack;
-        // Discord's real role store exposes getRolesSnapshot(guildId) (and getRole/getRoles).
         this.GuildRoleStore = wp.getStore("GuildRoleStore") || wp.getModule(m => m?.getRolesSnapshot && m?.getRole);
     }
 
@@ -411,8 +422,6 @@ module.exports = class PacMansUtilities {
             rolesObj = this.GuildRoleStore.getRoles(guildId);
         }
 
-        // Fall back to the roles embedded directly on the Guild object itself,
-        // mirroring `guild?.roles ?? GuildRoleStore?.getRolesSnapshot(guild?.id)`.
         if (!rolesObj) {
             const guild = this.GuildStore?.getGuild?.(guildId);
             rolesObj = guild?.roles || null;
@@ -481,39 +490,6 @@ module.exports = class PacMansUtilities {
             .pmu-rp-close:hover {
                 background: #3f4147;
                 color: #ffffff !important;
-            }
-            .pmu-rp-search-wrap {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                padding: 12px 16px;
-                background: #313338;
-                border-bottom: 1px solid #1e1f22;
-                flex-shrink: 0;
-            }
-            .pmu-rp-search {
-                flex: 1;
-                min-width: 0;
-                height: 32px;
-                padding: 0 10px;
-                background: #1e1f22 !important;
-                color: #f2f3f5 !important;
-                caret-color: #f2f3f5;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 5px;
-                font-size: 13px;
-                line-height: 30px;
-                outline: none;
-                margin: 0;
-                -webkit-appearance: none;
-                appearance: none;
-            }
-            .pmu-rp-search::placeholder {
-                color: #949ba4 !important;
-                opacity: 1;
-            }
-            .pmu-rp-search:focus {
-                border-color: #5865f2;
             }
             .pmu-rp-count {
                 font-size: 11px;
@@ -637,7 +613,7 @@ module.exports = class PacMansUtilities {
 
         this.injectRolePickerStyles();
 
-        const selected = new Set(parseIds(inputEl.value));
+        const selected = new Set(parseIdsSet(inputEl.value));
 
         const overlay = document.createElement("div");
         overlay.className = "pmu-rp-overlay";
@@ -671,20 +647,6 @@ module.exports = class PacMansUtilities {
         header.appendChild(closeBtn);
         modal.appendChild(header);
 
-        const searchWrap = document.createElement("div");
-        searchWrap.className = "pmu-rp-search-wrap";
-
-        const searchInput = document.createElement("input");
-        searchInput.type = "text";
-        searchInput.className = "pmu-rp-search";
-        searchInput.placeholder = "Search by role name or ID...";
-        searchWrap.appendChild(searchInput);
-
-        const countLabel = document.createElement("span");
-        countLabel.className = "pmu-rp-count";
-        searchWrap.appendChild(countLabel);
-        modal.appendChild(searchWrap);
-
         const gridWrap = document.createElement("div");
         gridWrap.className = "pmu-rp-grid-wrap";
         const grid = document.createElement("div");
@@ -692,11 +654,25 @@ module.exports = class PacMansUtilities {
         gridWrap.appendChild(grid);
         modal.appendChild(gridWrap);
 
+        const footer = document.createElement("div");
+        footer.className = "pmu-rp-footer";
+
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "pmu-rp-btn";
+        clearBtn.innerText = "Clear All";
+        clearBtn.style.cssText = "background: transparent; color: #f23f43 !important; font-size: 12px; padding: 8px 12px;";
+        
+        const countLabel = document.createElement("span");
+        countLabel.className = "pmu-rp-count";
+        countLabel.style.marginLeft = "8px";
+
         const updateCount = () => {
             countLabel.innerText = `${selected.size} selected`;
         };
 
         const cellEntries = [];
+        const fragment = document.createDocumentFragment();
 
         roles.forEach(role => {
             const cell = document.createElement("label");
@@ -743,43 +719,19 @@ module.exports = class PacMansUtilities {
                 updateCount();
             };
 
-            cellEntries.push({ el: cell, setChecked, searchText: `${(role.name || "").toLowerCase()} ${role.id}` });
-            grid.appendChild(cell);
+            cellEntries.push({ el: cell, setChecked });
+            fragment.appendChild(cell);
         });
 
-        updateCount();
+        grid.appendChild(fragment);
 
-        searchInput.oninput = () => {
-            const q = searchInput.value.trim().toLowerCase();
-            let visibleCount = 0;
-            cellEntries.forEach(({ el, searchText }) => {
-                const match = !q || searchText.includes(q);
-                el.style.display = match ? "" : "none";
-                if (match) visibleCount++;
-            });
-            grid.querySelector(".pmu-rp-empty")?.remove();
-            if (visibleCount === 0) {
-                const empty = document.createElement("div");
-                empty.className = "pmu-rp-empty";
-                empty.innerText = "No roles match your search.";
-                grid.appendChild(empty);
-            }
-        };
-
-        const footer = document.createElement("div");
-        footer.className = "pmu-rp-footer";
-
-        const clearBtn = document.createElement("button");
-        clearBtn.type = "button";
-        clearBtn.className = "pmu-rp-btn";
-        clearBtn.innerText = "Clear All";
-        clearBtn.style.cssText = "background: transparent; color: #f23f43 !important; font-size: 12px; padding: 8px 12px;";
         clearBtn.onclick = () => {
             selected.clear();
             cellEntries.forEach(({ setChecked }) => setChecked(false));
             updateCount();
         };
         footer.appendChild(clearBtn);
+        footer.appendChild(countLabel);
 
         const spacer = document.createElement("div");
         spacer.style.flex = "1";
@@ -806,12 +758,11 @@ module.exports = class PacMansUtilities {
         footer.appendChild(applyBtn);
 
         modal.appendChild(footer);
+        updateCount();
 
         document.body.appendChild(overlay);
-        searchInput.focus();
     }
 
-    // --- SETTINGS PANEL UI (Cross-OS Resizable Modal Architecture) ---
     getSettingsPanel() {
         this.ensureRoleStore();
         const panel = document.createElement("div");
@@ -824,7 +775,6 @@ module.exports = class PacMansUtilities {
                 box-sizing: border-box;
                 font-family: inherit;
             }
-            /* macOS BetterDiscord Detached Resizable Modal Optimization */
             .pmu-settings-root.pmu-os-mac {
                 padding: clamp(10px, 2vw, 16px);
                 width: 100%;
@@ -838,7 +788,6 @@ module.exports = class PacMansUtilities {
                 position: relative;
                 contain: layout style;
             }
-            /* Windows & Linux Full-Pane Settings Optimization */
             .pmu-settings-root.pmu-os-desktop {
                 padding: clamp(14px, 2.5vw, 28px);
                 max-width: min(1200px, 100%);
@@ -970,7 +919,6 @@ module.exports = class PacMansUtilities {
                 flex-shrink: 0;
                 margin-left: auto;
             }
-            /* Role-id fields: the picker button lives INSIDE the input, not beside it */
             .pmu-field-ids-wrap {
                 position: relative;
                 width: 100%;
@@ -1002,8 +950,6 @@ module.exports = class PacMansUtilities {
             .pmu-inline-pick-btn:hover {
                 background: var(--background-modifier-hover);
             }
-
-            /* Container & Viewport Width Adaptation */
             @container pmu-panel (max-width: 720px) {
                 .pmu-field-name, .pmu-field-ids, .pmu-field-cond {
                     flex: 1 1 calc(50% - 8px);
@@ -1034,7 +980,7 @@ module.exports = class PacMansUtilities {
                 <h2 style="color: var(--header-primary); font-size: clamp(16px, 1.4vw, 18px); font-weight: 700; margin: 0; line-height: 1.3;">Pac-Mans Utilities - Server Rules</h2>
             </div>
             <p style="color: var(--text-muted); font-size: clamp(12px, 1vw, 13px); line-height: 1.5; margin: 0;">
-                Configure server presets, label your rules, and type or paste Role IDs directly — or use the "+" inside the field to pick roles from a searchable list. Use ⬆️ / ⬇️ to reorder priority. Export or import individual server configurations below.
+                Configure server presets, label your rules, and type or paste Role IDs directly — or use the "+" inside the field to pick roles from a list. Use ⬆️ / ⬇️ to reorder priority. Export or import individual server configurations below.
             </p>
         `;
         panel.appendChild(header);
@@ -1120,6 +1066,8 @@ module.exports = class PacMansUtilities {
                 container.appendChild(emptyState);
                 return;
             }
+
+            const fragment = document.createDocumentFragment();
 
             this.settings.presets.forEach((serverPreset, pIndex) => {
                 if (serverPreset.collapsed === undefined) serverPreset.collapsed = false;
@@ -1397,7 +1345,6 @@ module.exports = class PacMansUtilities {
                             nameWrapper.appendChild(nameInput);
                             ruleBox.appendChild(nameWrapper);
 
-                            // --- Target Role ID(s): "+" lives INSIDE the input ---
                             const targetWrapper = document.createElement("div");
                             targetWrapper.className = "pmu-field-ids";
                             targetWrapper.style.cssText = "display: flex; flex-direction: column;";
@@ -1428,7 +1375,6 @@ module.exports = class PacMansUtilities {
                             targetWrapper.appendChild(targetFieldWrap);
                             ruleBox.appendChild(targetWrapper);
 
-                            // --- Exception Role ID(s): "+" lives INSIDE the input ---
                             const excWrapper = document.createElement("div");
                             excWrapper.className = "pmu-field-ids";
                             excWrapper.style.cssText = "display: flex; flex-direction: column;";
@@ -1556,8 +1502,10 @@ module.exports = class PacMansUtilities {
                     card.appendChild(rulesList);
                 }
 
-                container.appendChild(card);
+                fragment.appendChild(card);
             });
+
+            container.appendChild(fragment);
         };
 
         renderPresets();

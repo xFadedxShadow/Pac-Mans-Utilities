@@ -1,4 +1,8 @@
 /**
+ * @name Pac-Mans Utilities
+ * @author the.pacman.is.back
+ * @authorId 280218268038463489
+ * @description Automatically copies User IDs and highlights voice users using cascading rule priority, multi-role checks, and exception role bypasses with manual role ID entry or a searchable in-field role picker, custom rule labeling, and individual server preset import/export.
  * @updateUrl https://raw.githubusercontent.com/xFadedxShadow/Pac-Mans-Utilities/master/Source/Pac-Mans%20Utilities.plugin.js
  * @source https://github.com/xFadedxShadow/Pac-Mans-Utilities/tree/master/Source
  */

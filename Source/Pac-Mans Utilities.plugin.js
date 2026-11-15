@@ -1,7 +1,3 @@
-/**
- * @version 1.0.0
- */
-
 const rgbaCache = new Map();
 const hexToRgba = (hex, alpha) => {
     const key = `${hex}_${alpha}`;

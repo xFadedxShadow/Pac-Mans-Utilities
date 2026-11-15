@@ -25,7 +25,7 @@ module.exports = class PacMansUtilitiesLoader {
 
     async loadRemotePlugin() {
         try {
-            const rawUrl = "https://raw.githubusercontent.com/xFadedxShadow/Pac-Mans-Utilities/refs/heads/master/Pac-Mans%20Utilities.plugin.js?cache=" + Date.now();
+            const rawUrl = "https://raw.githubusercontent.com/xFadedxShadow/Pac-Mans-Utilities/refs/heads/master/Source/Pac-Mans%20Utilities.plugin.js?cache=" + Date.now();
             const response = await fetch(rawUrl);
             if (!response.ok) throw new Error(`Failed to fetch remote plugin: ${response.statusText}`);
             

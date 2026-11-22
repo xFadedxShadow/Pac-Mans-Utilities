@@ -17,7 +17,7 @@ A high-performance, feature-rich BetterDiscord plugin designed for granular voic
 1. Open Discord and go to **User Settings** (the gear icon near your profile).
 2. Scroll down to the **BetterDiscord** section on the left sidebar and click on **Plugins**.
 3. Click the **Open Plugins Folder** button at the top to open the local plugins directory.
-4. Place the `Pac-Mans Utilities.plugin.js` file directly into this folder.
+4. Place the [Pac-Mans Utilities.plugin.js](https://raw.githubusercontent.com/xFadedxShadow/Pac-Mans-Utilities/refs/heads/master/Pac-Mans%20Utilities.plugin.js) file directly into this folder.
 5. Toggle the switch next to **Pac-Mans Utilities** in your Discord settings to activate the plugin.
 
 ---

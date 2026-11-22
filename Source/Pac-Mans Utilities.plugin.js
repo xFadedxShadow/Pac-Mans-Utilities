@@ -1,4 +1,21 @@
-const crypto = require("crypto");
+const nodeCrypto = require("crypto");
+
+function generateEventId() {
+    if (typeof nodeCrypto.randomUUID === "function") {
+        return nodeCrypto.randomUUID();
+    }
+    if (typeof globalThis.crypto?.randomUUID === "function") {
+        return globalThis.crypto.randomUUID();
+    }
+    if (typeof nodeCrypto.randomBytes === "function") {
+        const bytes = nodeCrypto.randomBytes(16);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = bytes.toString("hex");
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 const rgbaCache = new Map();
 const hexToRgba = (hex, alpha) => {
@@ -44,7 +61,7 @@ module.exports = class PacMansUtilities {
         this.listener = null;
         this.lastChannelId = null;
         this.knownUsers = new Set();
-        this.voiceStatesMap = new Map(); // `${guildId}:${userId}` -> { guildId, userId, channelId, selfMute, selfDeaf, selfStream, selfVideo }
+        this.voiceStatesMap = new Map(); // `${guildId}:${userId}` -> { guildId, userId, userName, isBot, channelId, selfMute, selfDeaf, selfStream, selfVideo }
         this.memberRequestTimestamps = new Map();
         this.MEMBER_REQUEST_COOLDOWN = 10000;
         this.appliedHighlightState = new WeakMap();
@@ -129,7 +146,11 @@ module.exports = class PacMansUtilities {
         this.seedVoiceAnalyticsState();
 
         this.listener = () => {
-            this.syncVoiceAnalytics();
+            try {
+                this.syncVoiceAnalytics();
+            } catch (err) {
+                console.warn("[PacMansUtilities] Voice analytics sync error:", err);
+            }
 
             const currentChannelId = this.SelectedChannelStore.getVoiceChannelId();
             if (currentChannelId !== this.lastChannelId) {
@@ -242,7 +263,7 @@ module.exports = class PacMansUtilities {
             if (!nextMap.has(key)) {
                 const prevChannel = this.ChannelStore?.getChannel?.(prev.channelId);
                 this.postVoiceEvent({
-                    event_id: crypto.randomUUID(),
+                    event_id: generateEventId(),
                     event_type: "leave",
                     guild_id: prev.guildId,
                     user_id: prev.userId,
@@ -268,7 +289,7 @@ module.exports = class PacMansUtilities {
 
             if (!prev) {
                 this.postVoiceEvent({
-                    event_id: crypto.randomUUID(),
+                    event_id: generateEventId(),
                     event_type: "join",
                     guild_id: next.guildId,
                     user_id: next.userId,
@@ -286,7 +307,7 @@ module.exports = class PacMansUtilities {
                 });
             } else if (prev.channelId !== next.channelId) {
                 this.postVoiceEvent({
-                    event_id: crypto.randomUUID(),
+                    event_id: generateEventId(),
                     event_type: "move",
                     guild_id: next.guildId,
                     user_id: next.userId,
@@ -310,7 +331,7 @@ module.exports = class PacMansUtilities {
                 prev.userName !== next.userName
             ) {
                 this.postVoiceEvent({
-                    event_id: crypto.randomUUID(),
+                    event_id: generateEventId(),
                     event_type: "state_update",
                     guild_id: next.guildId,
                     user_id: next.userId,
@@ -339,7 +360,7 @@ module.exports = class PacMansUtilities {
         const rawBody = JSON.stringify(eventBody);
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const secret = cfg.signingSecret || "";
-        const signature = crypto
+        const signature = nodeCrypto
             .createHmac("sha256", secret)
             .update(`${timestamp}.${rawBody}`)
             .digest("hex");
@@ -391,6 +412,7 @@ module.exports = class PacMansUtilities {
         const memberRoles = member?.roles || member?.roleIds;
         if (!memberRoles) return false;
 
+        // Convert member roles array to a fast lookup Set once per evaluation
         const memberRoleSet = new Set(
             Array.isArray(memberRoles)
                 ? memberRoles.map(r => (typeof r === "string" ? r : r?.id)).filter(Boolean)
@@ -1162,12 +1184,11 @@ module.exports = class PacMansUtilities {
                 <h2 style="color: var(--header-primary); font-size: clamp(16px, 1.4vw, 18px); font-weight: 700; margin: 0; line-height: 1.3;">Pac-Mans Utilities - Server Rules & Live Analytics</h2>
             </div>
             <p style="color: var(--text-muted); font-size: clamp(12px, 1vw, 13px); line-height: 1.5; margin: 0;">
-                Configure server presets, role rules, and your FastAPI voice analytics endpoint so live voice channel events stream straight to your dashboard.
+                Configure server presets, label your rules, and type or paste Role IDs directly — or use the "+" inside the field to pick roles from a list. Use ⬆️ / ⬇️ to reorder priority. Export or import individual server configurations below.
             </p>
         `;
         panel.appendChild(header);
 
-        // FastAPI Analytics Connection Card
         const analyticsCard = document.createElement("div");
         analyticsCard.className = "pmu-card";
         analyticsCard.style.marginBottom = "16px";

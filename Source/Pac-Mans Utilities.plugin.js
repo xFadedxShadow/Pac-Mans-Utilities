@@ -1,13 +1,19 @@
-const nodeCrypto = require("crypto");
+const nodeCrypto = (() => {
+    try {
+        return require("crypto");
+    } catch (_) {
+        return null;
+    }
+})();
 
 function generateEventId() {
-    if (typeof nodeCrypto.randomUUID === "function") {
+    if (typeof nodeCrypto?.randomUUID === "function") {
         return nodeCrypto.randomUUID();
     }
     if (typeof globalThis.crypto?.randomUUID === "function") {
         return globalThis.crypto.randomUUID();
     }
-    if (typeof nodeCrypto.randomBytes === "function") {
+    if (typeof nodeCrypto?.randomBytes === "function") {
         const bytes = nodeCrypto.randomBytes(16);
         bytes[6] = (bytes[6] & 0x0f) | 0x40;
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
@@ -15,6 +21,31 @@ function generateEventId() {
         return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     }
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+async function signHmacSha256Hex(secret, message) {
+    if (typeof nodeCrypto?.createHmac === "function") {
+        return nodeCrypto
+            .createHmac("sha256", String(secret || ""))
+            .update(message)
+            .digest("hex");
+    }
+    const subtle = globalThis.crypto?.subtle;
+    if (!subtle) {
+        throw new Error("No HMAC-SHA256 implementation available");
+    }
+    const enc = new TextEncoder();
+    const key = await subtle.importKey(
+        "raw",
+        enc.encode(String(secret || "")),
+        { name: "HMAC", hash: { name: "SHA-256" } },
+        false,
+        ["sign"]
+    );
+    const sigBuffer = await subtle.sign("HMAC", key, enc.encode(message));
+    return Array.from(new Uint8Array(sigBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 }
 
 const rgbaCache = new Map();
@@ -360,12 +391,9 @@ module.exports = class PacMansUtilities {
         const rawBody = JSON.stringify(eventBody);
         const timestamp = Math.floor(Date.now() / 1000).toString();
         const secret = cfg.signingSecret || "";
-        const signature = nodeCrypto
-            .createHmac("sha256", secret)
-            .update(`${timestamp}.${rawBody}`)
-            .digest("hex");
 
         try {
+            const signature = await signHmacSha256Hex(secret, `${timestamp}.${rawBody}`);
             const res = await fetch(cfg.endpointUrl, {
                 method: "POST",
                 headers: {

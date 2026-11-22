@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 const rgbaCache = new Map();
 const hexToRgba = (hex, alpha) => {
     const key = `${hex}_${alpha}`;
@@ -29,12 +31,20 @@ const isMac = typeof navigator !== 'undefined' && (/Mac|iPod|iPhone|iPad/.test(n
 
 module.exports = class PacMansUtilities {
     constructor() {
-        this.defaultSettings = { presets: [] };
+        this.defaultSettings = {
+            presets: [],
+            analytics: {
+                enabled: true,
+                endpointUrl: "http://127.0.0.1:8000/api/voice/events",
+                signingSecret: "REPLACE_WITH_STRONG_SECRET",
+            },
+        };
         this.settings = {};
         this.highlightInterval = null;
         this.listener = null;
         this.lastChannelId = null;
         this.knownUsers = new Set();
+        this.voiceStatesMap = new Map(); // `${guildId}:${userId}` -> { guildId, userId, channelId, selfMute, selfDeaf, selfStream, selfVideo }
         this.memberRequestTimestamps = new Map();
         this.MEMBER_REQUEST_COOLDOWN = 10000;
         this.appliedHighlightState = new WeakMap();
@@ -60,6 +70,13 @@ module.exports = class PacMansUtilities {
         }
         for (let i = 0; i < obj.presets.length; i++) {
             this.normalizePreset(obj.presets[i]);
+        }
+        if (!obj.analytics || typeof obj.analytics !== "object") {
+            obj.analytics = { ...this.defaultSettings.analytics };
+        } else {
+            if (obj.analytics.enabled === undefined) obj.analytics.enabled = true;
+            if (!obj.analytics.endpointUrl) obj.analytics.endpointUrl = this.defaultSettings.analytics.endpointUrl;
+            if (!obj.analytics.signingSecret) obj.analytics.signingSecret = this.defaultSettings.analytics.signingSecret;
         }
     }
 
@@ -109,8 +126,11 @@ module.exports = class PacMansUtilities {
 
         this.lastChannelId = this.SelectedChannelStore.getVoiceChannelId();
         this.knownUsers = new Set(this.getCurrentChannelUsers());
+        this.seedVoiceAnalyticsState();
 
         this.listener = () => {
+            this.syncVoiceAnalytics();
+
             const currentChannelId = this.SelectedChannelStore.getVoiceChannelId();
             if (currentChannelId !== this.lastChannelId) {
                 this.lastChannelId = currentChannelId;
@@ -169,6 +189,177 @@ module.exports = class PacMansUtilities {
         if (this.highlightInterval) clearInterval(this.highlightInterval);
         this.clearAllHighlights();
         this.memberRequestTimestamps.clear();
+        this.voiceStatesMap.clear();
+    }
+
+    getTrackedGuildIds() {
+        const enabledPresets = (this.settings.presets || []).filter(p => p.enabled && p.guildId);
+        return new Set(enabledPresets.map(p => String(p.guildId)));
+    }
+
+    collectCurrentVoiceEntries() {
+        const trackedGuilds = this.getTrackedGuildIds();
+        const entries = new Map();
+
+        const allStates = this.VoiceStateStore?.getAllVoiceStates?.();
+        if (allStates && typeof allStates === "object") {
+            for (const [guildId, users] of Object.entries(allStates)) {
+                if (trackedGuilds.size > 0 && !trackedGuilds.has(String(guildId))) continue;
+                if (!users || typeof users !== "object") continue;
+
+                for (const [userId, vs] of Object.entries(users)) {
+                    if (!vs?.channelId) continue;
+                    const user = this.UserStore?.getUser?.(userId);
+                    if (user?.bot || user?.system) continue;
+
+                    entries.set(`${guildId}:${userId}`, {
+                        guildId: String(guildId),
+                        userId: String(userId),
+                        userName: user?.globalName || user?.username || `User_${userId}`,
+                        isBot: Boolean(user?.bot),
+                        channelId: String(vs.channelId),
+                        selfMute: Boolean(vs.selfMute),
+                        selfDeaf: Boolean(vs.selfDeaf),
+                        selfStream: Boolean(vs.selfStream),
+                        selfVideo: Boolean(vs.selfVideo),
+                    });
+                }
+            }
+        }
+
+        return entries;
+    }
+
+    seedVoiceAnalyticsState() {
+        this.voiceStatesMap = this.collectCurrentVoiceEntries();
+    }
+
+    syncVoiceAnalytics() {
+        const nextMap = this.collectCurrentVoiceEntries();
+        const prevMap = this.voiceStatesMap;
+
+        for (const [key, prev] of prevMap.entries()) {
+            if (!nextMap.has(key)) {
+                const prevChannel = this.ChannelStore?.getChannel?.(prev.channelId);
+                this.postVoiceEvent({
+                    event_id: crypto.randomUUID(),
+                    event_type: "leave",
+                    guild_id: prev.guildId,
+                    user_id: prev.userId,
+                    user_name: prev.userName,
+                    is_bot: prev.isBot,
+                    channel_id: null,
+                    channel_name: null,
+                    previous_channel_id: prev.channelId,
+                    previous_channel_name: prevChannel?.name || null,
+                    self_mute: prev.selfMute,
+                    self_deaf: prev.selfDeaf,
+                    self_stream: prev.selfStream,
+                    self_video: prev.selfVideo,
+                    occurred_at: new Date().toISOString(),
+                });
+            }
+        }
+
+        for (const [key, next] of nextMap.entries()) {
+            const prev = prevMap.get(key);
+            const ch = this.ChannelStore?.getChannel?.(next.channelId);
+            const prevCh = prev?.channelId ? this.ChannelStore?.getChannel?.(prev.channelId) : null;
+
+            if (!prev) {
+                this.postVoiceEvent({
+                    event_id: crypto.randomUUID(),
+                    event_type: "join",
+                    guild_id: next.guildId,
+                    user_id: next.userId,
+                    user_name: next.userName,
+                    is_bot: next.isBot,
+                    channel_id: next.channelId,
+                    channel_name: ch?.name || `Channel ${next.channelId}`,
+                    previous_channel_id: null,
+                    previous_channel_name: null,
+                    self_mute: next.selfMute,
+                    self_deaf: next.selfDeaf,
+                    self_stream: next.selfStream,
+                    self_video: next.selfVideo,
+                    occurred_at: new Date().toISOString(),
+                });
+            } else if (prev.channelId !== next.channelId) {
+                this.postVoiceEvent({
+                    event_id: crypto.randomUUID(),
+                    event_type: "move",
+                    guild_id: next.guildId,
+                    user_id: next.userId,
+                    user_name: next.userName,
+                    is_bot: next.isBot,
+                    channel_id: next.channelId,
+                    channel_name: ch?.name || `Channel ${next.channelId}`,
+                    previous_channel_id: prev.channelId,
+                    previous_channel_name: prevCh?.name || null,
+                    self_mute: next.selfMute,
+                    self_deaf: next.selfDeaf,
+                    self_stream: next.selfStream,
+                    self_video: next.selfVideo,
+                    occurred_at: new Date().toISOString(),
+                });
+            } else if (
+                prev.selfMute !== next.selfMute ||
+                prev.selfDeaf !== next.selfDeaf ||
+                prev.selfStream !== next.selfStream ||
+                prev.selfVideo !== next.selfVideo ||
+                prev.userName !== next.userName
+            ) {
+                this.postVoiceEvent({
+                    event_id: crypto.randomUUID(),
+                    event_type: "state_update",
+                    guild_id: next.guildId,
+                    user_id: next.userId,
+                    user_name: next.userName,
+                    is_bot: next.isBot,
+                    channel_id: next.channelId,
+                    channel_name: ch?.name || `Channel ${next.channelId}`,
+                    previous_channel_id: null,
+                    previous_channel_name: null,
+                    self_mute: next.selfMute,
+                    self_deaf: next.selfDeaf,
+                    self_stream: next.selfStream,
+                    self_video: next.selfVideo,
+                    occurred_at: new Date().toISOString(),
+                });
+            }
+        }
+
+        this.voiceStatesMap = nextMap;
+    }
+
+    async postVoiceEvent(eventBody) {
+        const cfg = this.settings?.analytics;
+        if (!cfg?.enabled || !cfg?.endpointUrl) return;
+
+        const rawBody = JSON.stringify(eventBody);
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const secret = cfg.signingSecret || "";
+        const signature = crypto
+            .createHmac("sha256", secret)
+            .update(`${timestamp}.${rawBody}`)
+            .digest("hex");
+
+        try {
+            const res = await fetch(cfg.endpointUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Timestamp": timestamp,
+                    "X-Signature": signature,
+                },
+                body: rawBody,
+            });
+            if (!res.ok) {
+                console.warn(`[PacMansUtilities] FastAPI rejected voice event: ${res.status}`);
+            }
+        } catch (err) {
+            console.warn(`[PacMansUtilities] Failed to reach FastAPI endpoint: ${err.message}`);
+        }
     }
 
     getGuildMember(guildId, userId) {
@@ -200,9 +391,8 @@ module.exports = class PacMansUtilities {
         const memberRoles = member?.roles || member?.roleIds;
         if (!memberRoles) return false;
 
-        // Convert member roles array to a fast lookup Set once per evaluation
         const memberRoleSet = new Set(
-            Array.isArray(memberRoles) 
+            Array.isArray(memberRoles)
                 ? memberRoles.map(r => (typeof r === "string" ? r : r?.id)).filter(Boolean)
                 : []
         );
@@ -654,7 +844,7 @@ module.exports = class PacMansUtilities {
         clearBtn.className = "pmu-rp-btn";
         clearBtn.innerText = "Clear All";
         clearBtn.style.cssText = "background: transparent; color: #f23f43 !important; font-size: 12px; padding: 8px 12px;";
-        
+
         const countLabel = document.createElement("span");
         countLabel.className = "pmu-rp-count";
         countLabel.style.marginLeft = "8px";
@@ -969,13 +1159,79 @@ module.exports = class PacMansUtilities {
         header.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
                 <span style="font-size: clamp(18px, 1.5vw, 20px); line-height: 1;">🛡️</span>
-                <h2 style="color: var(--header-primary); font-size: clamp(16px, 1.4vw, 18px); font-weight: 700; margin: 0; line-height: 1.3;">Pac-Mans Utilities - Server Rules</h2>
+                <h2 style="color: var(--header-primary); font-size: clamp(16px, 1.4vw, 18px); font-weight: 700; margin: 0; line-height: 1.3;">Pac-Mans Utilities - Server Rules & Live Analytics</h2>
             </div>
             <p style="color: var(--text-muted); font-size: clamp(12px, 1vw, 13px); line-height: 1.5; margin: 0;">
-                Configure server presets, label your rules, and type or paste Role IDs directly — or use the "+" inside the field to pick roles from a list. Use ⬆️ / ⬇️ to reorder priority. Export or import individual server configurations below.
+                Configure server presets, role rules, and your FastAPI voice analytics endpoint so live voice channel events stream straight to your dashboard.
             </p>
         `;
         panel.appendChild(header);
+
+        // FastAPI Analytics Connection Card
+        const analyticsCard = document.createElement("div");
+        analyticsCard.className = "pmu-card";
+        analyticsCard.style.marginBottom = "16px";
+
+        const analyticsTop = document.createElement("div");
+        analyticsTop.style.cssText = "display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;";
+        analyticsTop.innerHTML = `
+            <div>
+                <div style="font-size: 13px; font-weight: 700; color: var(--header-primary);">📡 FastAPI Voice Analytics Stream</div>
+                <div style="font-size: 12px; color: var(--text-muted);">Sends signed voice state events for enabled server configs above (or all servers if none are configured).</div>
+            </div>
+        `;
+
+        const enableWrap = document.createElement("label");
+        enableWrap.style.cssText = "display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--header-secondary); cursor: pointer;";
+        const enableCheck = document.createElement("input");
+        enableCheck.type = "checkbox";
+        enableCheck.className = "pmu-checkbox";
+        enableCheck.checked = Boolean(this.settings.analytics?.enabled);
+        enableCheck.onchange = (e) => {
+            this.settings.analytics.enabled = e.target.checked;
+            BdApi.Data.save("PacMansUtilities", "settings", this.settings);
+            if (this.settings.analytics.enabled) this.seedVoiceAnalyticsState();
+        };
+        enableWrap.appendChild(enableCheck);
+        enableWrap.appendChild(document.createTextNode("Send Analytics"));
+        analyticsTop.appendChild(enableWrap);
+        analyticsCard.appendChild(analyticsTop);
+
+        const analyticsFields = document.createElement("div");
+        analyticsFields.style.cssText = "display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;";
+
+        const urlCol = document.createElement("div");
+        urlCol.style.cssText = "flex: 2 1 240px; min-width: 180px;";
+        urlCol.innerHTML = '<label class="pmu-label">FastAPI Events URL</label>';
+        const urlInput = document.createElement("input");
+        urlInput.type = "text";
+        urlInput.className = "pmu-input";
+        urlInput.value = this.settings.analytics?.endpointUrl || "";
+        urlInput.placeholder = "https://api.yourdomain.com/api/voice/events";
+        urlInput.oninput = (e) => {
+            this.settings.analytics.endpointUrl = e.target.value.trim();
+            BdApi.Data.save("PacMansUtilities", "settings", this.settings);
+        };
+        urlCol.appendChild(urlInput);
+        analyticsFields.appendChild(urlCol);
+
+        const secretCol = document.createElement("div");
+        secretCol.style.cssText = "flex: 1.5 1 200px; min-width: 160px;";
+        secretCol.innerHTML = '<label class="pmu-label">Signing Secret (VOICE_PLUGIN_SECRET)</label>';
+        const secretInput = document.createElement("input");
+        secretInput.type = "password";
+        secretInput.className = "pmu-input";
+        secretInput.value = this.settings.analytics?.signingSecret || "";
+        secretInput.placeholder = "Matches FastAPI signing secret";
+        secretInput.oninput = (e) => {
+            this.settings.analytics.signingSecret = e.target.value;
+            BdApi.Data.save("PacMansUtilities", "settings", this.settings);
+        };
+        secretCol.appendChild(secretInput);
+        analyticsFields.appendChild(secretCol);
+
+        analyticsCard.appendChild(analyticsFields);
+        panel.appendChild(analyticsCard);
 
         const toolbar = document.createElement("div");
         toolbar.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;";

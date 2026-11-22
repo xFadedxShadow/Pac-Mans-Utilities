@@ -174,7 +174,12 @@ module.exports = class PacMansUtilities {
 
         this.lastChannelId = this.SelectedChannelStore.getVoiceChannelId();
         this.knownUsers = new Set(this.getCurrentChannelUsers());
-        this.seedVoiceAnalyticsState();
+
+        try {
+            this.seedVoiceAnalyticsState();
+        } catch (err) {
+            console.warn("[PacMansUtilities] Initial voice analytics seed error:", err);
+        }
 
         this.listener = () => {
             try {
@@ -283,7 +288,31 @@ module.exports = class PacMansUtilities {
     }
 
     seedVoiceAnalyticsState() {
-        this.voiceStatesMap = this.collectCurrentVoiceEntries();
+        const currentMap = this.collectCurrentVoiceEntries();
+        const nowIso = new Date().toISOString();
+
+        for (const [, entry] of currentMap.entries()) {
+            const ch = this.ChannelStore?.getChannel?.(entry.channelId);
+            this.postVoiceEvent({
+                event_id: generateEventId(),
+                event_type: "join",
+                guild_id: entry.guildId,
+                user_id: entry.userId,
+                user_name: entry.userName,
+                is_bot: entry.isBot,
+                channel_id: entry.channelId,
+                channel_name: ch?.name || `Channel ${entry.channelId}`,
+                previous_channel_id: null,
+                previous_channel_name: null,
+                self_mute: entry.selfMute,
+                self_deaf: entry.selfDeaf,
+                self_stream: entry.selfStream,
+                self_video: entry.selfVideo,
+                occurred_at: nowIso,
+            });
+        }
+
+        this.voiceStatesMap = currentMap;
     }
 
     syncVoiceAnalytics() {
